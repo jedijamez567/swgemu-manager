@@ -36,11 +36,18 @@ services:
       - "44455:44455"
       - "44455:44455/udp"
       - "44460:44460"
+      - "44443:44443"  # REST API port
     volumes:
       - ./tre:/home/swgemu/Desktop/SWGEmu
       - ./conf:/app/MMOCoreORB/bin/conf
       - ./Core3/MMOCoreORB/bin/scripts:/app/MMOCoreORB/bin/scripts
       - ./resource_manager/resource_manager_spawns.lua:/app/MMOCoreORB/bin/scripts/managers/resource_manager_spawns.lua
+      - ./loot_manager/loot_manager.lua:/app/MMOCoreORB/bin/scripts/managers/loot_manager.lua
+      - ./mission_manager/mission_manager.lua:/app/MMOCoreORB/bin/scripts/managers/mission_manager.lua
+      - ./planet_manager/planet_manager.lua:/app/MMOCoreORB/bin/scripts/managers/planet_manager.lua
+      - ./player_creation_manager/player_creation_manager.lua:/app/MMOCoreORB/bin/scripts/managers/player_creation_manager.lua
+      - ./player_manager/player_manager.lua:/app/MMOCoreORB/bin/scripts/managers/player_manager.lua
+      - ./commands:/app/MMOCoreORB/bin/scripts/commands
       - ./log:/app/MMOCoreORB/bin/log
       - ./navmeshes:/app/MMOCoreORB/bin/navmeshes
       - ./databases:/app/MMOCoreORB/bin/databases
