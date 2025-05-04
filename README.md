@@ -1,4 +1,4 @@
-# swgemu-docker
+# swgemu-manager
 ```
 A Docker image and docker-compose file setup for running an SWGEmu dev environment in Docker.
 ```
@@ -15,6 +15,8 @@ The [Core3](https://github.com/swgemu/Core3) source is included as a submodule f
 * Pre-created admin account
 * Additional items/professions enabled on the BlueFrog terminals for testing
 * Graceful Shutdown
+* REST API for programmatic server management
+* Streamlit client for interacting with the REST API
 
 ## Getting Started
 
@@ -80,7 +82,12 @@ This user account is setup by the [admin_account.sql](sql/02-admin_account.sql) 
 
 You can connect to the MySQL database using `localhost:3306` using any MySQL compatible tool. The root password can be found in the [docker-compose.yml](docker-compose.yml)
 
+### Using the REST API
+
+The server includes a REST API that provides programmatic access to server information and management capabilities. See [REST_API_SETUP.md](REST_API_SETUP.md) for details on using the API.
+
+A Streamlit-based client application (`swgemu_api_client.py`) is provided for easy interaction with the REST API.
+
 ### In-game Commands
 
 All admin commands will be available to the default admin/admin account. You can find a full list of SWGAdmin commands here: [CommandsV2](https://drive.google.com/file/d/0BwjBDOFpOsM5OEVuMDh1U3BDYnM/view)
-

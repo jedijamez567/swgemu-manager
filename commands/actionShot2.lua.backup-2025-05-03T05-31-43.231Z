@@ -41,26 +41,54 @@
 --which carries forward this exception.
 --true = 1, false = 0
 
-AttackCommand = {
-        name = "attack",
-	damageMultiplier = 10,
-	speedMultiplier = 2,
+ActionShot2Command = {
+        name = "actionshot2",
 
-	combatSpam = "attack",
-	animation = "",
+	damageMultiplier = 2.0,
+	speedMultiplier = 2.0,
+	healthCostMultiplier = 2.0,
+	actionCostMultiplier = 1.25,
+	mindCostMultiplier = 0.5,
 
-	healthCostMultiplier = 0,
-	actionCostMultiplier = 0,
-	mindCostMultiplier = 0,
-	forceCostMultiplier = 0,
-	visMod = 25,
+	coneAngle = 15,
+	coneAction = true,
 
-	range = -1,
+	poolsToDamage = ACTION_ATTRIBUTE,
+
+	animation = "fire_5_special_single", 
+	animType = GENERATE_RANGED,
+
+	combatSpam = "sapblast",
+	    
+	stateEffects = {
+	  StateEffect( 
+		POSTUREDOWN_EFFECT, 
+		{ "postureDownRecovery" }, 
+		{ "posture_change_down_defense" }, 
+		{},
+		100, 
+		0, 
+		0 
+	  )
+	},	
+
+	dotEffects = {
+	  DotEffect( 
+		BLEEDING, 
+		{ "resistance_bleeding", "bleed_resist" },
+		ACTION,
+		true,
+		0,
+		100,
+		60, 
+		60
+	  )
+	},
 	
-	trails = NOTRAIL,
+	weaponType = CARBINEWEAPON,
 
-	poolsToDamage = RANDOM_ATTRIBUTE
+	range = -1
 }
 
-AddCommand(AttackCommand)
+AddCommand(ActionShot2Command)
 

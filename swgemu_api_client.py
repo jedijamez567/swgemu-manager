@@ -14,7 +14,7 @@ with st.sidebar:
     port = st.number_input("Port", value=44443, min_value=1, max_value=65535)  # REST API port
     api_token = st.text_input("API Token", type="password")
     
-    base_url = f"http://{host}:{port}"
+    base_url = f"https://{host}:{port}"
     
     st.divider()
     st.header("Available Endpoints")
@@ -94,11 +94,18 @@ if st.button("Execute Request"):
             
             # Make the request
             with st.spinner("Making request..."):
+                # Add more detailed error handling and debugging
+                st.write(f"Making request to: {url}")
+                st.write(f"Headers: {headers}")
+                st.write(f"Params: {params}")
+                
                 response = requests.request(
                     method=selected_endpoint_details["method"],
                     url=url,
                     headers=headers,
-                    params=params
+                    params=params,
+                    verify=False,  # Disable SSL verification for self-signed certificates
+                    timeout=10  # Add timeout
                 )
             
             # Display the response

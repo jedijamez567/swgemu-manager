@@ -85,7 +85,13 @@ Core3 = {
 
 	ZoneProcessingThreads = 10,
 	ZoneAllowedConnections = 30000,
+	
+	-- Galaxy Configuration
 	ZoneGalaxyID = 2, --The actual zone server's galaxyID. Should coordinate with your login server.
+	ZoneGalaxyName = "Chevelle", --Name of the galaxy as it appears in the server list
+	ZoneGalaxyAddress = "jedijamez.local", --Address/hostname for the galaxy
+	ZoneGalaxyPort = 44463, --Main port for the galaxy
+	ZoneGalaxyPingPort = 44462, --Ping port for the galaxy
 
 	--The following zones are enabled, and will be loaded with server start.
 	--To save on RAM and CPU usage, you should only enable the zones you need.
@@ -215,7 +221,7 @@ Core3 = {
 
 	UnloadContainers = 1, -- Whether to unload container contents from RAM after the container hasn't been accessed for a time
 
-	LogFile = "log/core3.log",
+	LogFile = "log/chevelle.log",
 	LogFileLevel = 4, -- -1 NONE, 0 FATAL, 1 ERROR, 2 WARNING, 3 LOG, 4 INFO, 5 DEBUG
 	LogJSON = 0, -- global log output in JSON format
 	LogSync = 0, -- flush global log file after each write
