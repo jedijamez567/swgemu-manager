@@ -21,7 +21,7 @@ professions = {
 
 marksmanPistol = "object/weapon/ranged/pistol/pistol_cdef.iff"
 	
-marksmanRifle = "object/weapon/ranged/rifle/rifle_cdef.iff"
+marksmanRifle = "object/weapon/ranged/rifle/rifle_cdefg.iff"
 
 marksmanCarbine = "object/weapon/ranged/carbine/carbine_cdef.iff"
 
@@ -83,6 +83,8 @@ commonStartingItems = {
     marojMelon, 
     survivalKnife, 
     speederbike,
+	characterBuilderTerminal,
+	
     
     -- Armor
 		-- compositeArmorBoots,

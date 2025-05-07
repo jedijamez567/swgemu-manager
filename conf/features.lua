@@ -62,16 +62,16 @@
 
 
 --Jedi System Features
---Values: "hologrind", "village"
---feature("jediSystem", "hologrind")
+    --Values: "hologrind", "village"
+    --feature("jediSystem", "hologrind")
 
 --Armor Protection
---Values: "normal", "minisuits"
---feature("armorProtection", "minisuits")
+    --Values: "normal", "minisuits"
+    --feature("armorProtection", "minisuits")
 
 --GCW System
---Values: "specialForces", "TEF"
---feature("gcwSystem", "specialForces")
+    --Values: "specialForces", "TEF"
+    --feature("gcwSystem", "specialForces")
 
 --************************
 --Broken Skillmods Section
@@ -81,3 +81,5 @@
 --feature("modCombatMedicEffectiveness", "enabled");
 
 testing = "test"
+feature("jedisystem", "hologrind")
+feature("amorProtection", "minisuits")

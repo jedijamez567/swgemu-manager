@@ -80,9 +80,9 @@ playerBountyDebuffLength = 3 * 24 * 60 * 60 * 1000 -- Time before their bounty r
 -- Distance calculated as: 
 --    <BaseDistance> + <DifficultyDistanceFactor> * <difficultyLevel> + 
 --    rand(<RandomDistance>) + rand(<DifficutlyRandomDistance * <difficultyLevel>)
-destroyMissionBaseDistance = 100
+destroyMissionBaseDistance = 800
 destroyMissionDifficultyDistanceFactor = 0
-destroyMissionRandomDistance = 100
+destroyMissionRandomDistance = 800
 destroyMissionDifficultyRandomDistance = 0
 
 -- Mission payout calculated as: 
