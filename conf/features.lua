@@ -80,6 +80,6 @@
 --feature("modUnarmedDamage", "enabled");
 --feature("modCombatMedicEffectiveness", "enabled");
 
-testing = "test"
-feature("jedisystem", "hologrind")
-feature("amorProtection", "minisuits")
+--testing = "test"
+feature("jedisystem", "hologrind");
+feature("amorProtection", "minisuits");
