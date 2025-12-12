@@ -16,7 +16,8 @@ professions = {
 	"jedi",
 	"outdoors_scout",
 	"science_medic",
-	"social_entertainer"
+	"social_entertainer",
+	"jedi"
 }
 
 marksmanPistol = "object/weapon/ranged/pistol/pistol_cdef.iff"

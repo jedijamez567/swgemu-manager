@@ -48,7 +48,7 @@ lootChancePerLevel = 0.002 -- Additional 0.2% chance per creature level
 --Determines how often exceptional and legendary items can drop.
 yellowChance = 1000 -- 1 in 1,000
 exceptionalChance = 5000 --1 in 100,000
-legendaryChance = 2 --1 in 1,000,000
+legendaryChance = 0 --1 in 1,000,000
 --yellowChance = 50 --1 in 50 for testing
 --exceptionalChance = 100 --1 in 100 for testing
 --legendaryChance = 1000 --1 in 1000 for testing
