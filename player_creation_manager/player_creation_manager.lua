@@ -1,5 +1,7 @@
 --Should all created players start with God Mode? 1 = yes, 0 = no
 freeGodMode = 0;
+--Allow Jedi as a starting profession? 1 = yes, 0 = no
+allowJediStartingProfession = 1;
 --How many cash credits new characters start with after creating a character (changed during test phase, normal value is 100)
 startingCash = 10000
 --startingCash = 100000
@@ -16,8 +18,7 @@ professions = {
 	"jedi",
 	"outdoors_scout",
 	"science_medic",
-	"social_entertainer",
-	"jedi"
+	"social_entertainer"
 }
 
 marksmanPistol = "object/weapon/ranged/pistol/pistol_cdef.iff"
@@ -45,6 +46,11 @@ chemicalTool = "object/tangible/survey_tool/survey_tool_liquid.iff"
 slitherhorn = "object/tangible/instrument/slitherhorn.iff"
 
 marojMelon = "object/tangible/food/foraged/foraged_fruit_s1.iff"
+
+-- Jedi Items
+jediCraftingTool = "object/tangible/crafting/station/jedi_tool.iff"
+resourceDeed = "object/tangible/deed/resource_deed/resource_deed.iff"
+kraytPearl = "object/tangible/component/weapon/lightsaber/lightsaber_module_krayt_dragon_pearl.iff"
 
 x31Speeder = "object/tangible/deed/vehicle_deed/landspeeder_x31_deed.iff"
 
@@ -74,7 +80,14 @@ professionSpecificItems = {
 	combat_brawler = { brawlerOneHander, brawlerTwoHander, brawlerPolearm },
 	combat_marksman = { marksmanPistol, marksmanCarbine, marksmanRifle },
 	crafting_artisan = { genericTool, mineralTool, chemicalTool },
-	jedi = { },
+	jedi = { 
+		jediCraftingTool,
+		-- 10 resource deeds
+		resourceDeed, resourceDeed, resourceDeed, resourceDeed, resourceDeed,
+		resourceDeed, resourceDeed, resourceDeed, resourceDeed, resourceDeed,
+		-- 5 krayt dragon pearls
+		kraytPearl, kraytPearl, kraytPearl, kraytPearl, kraytPearl
+	},
 	outdoors_scout = { genericTool },
 	science_medic = { foodTool },
 	social_entertainer = { slitherhorn }
