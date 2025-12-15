@@ -309,6 +309,161 @@ function HologrindJediManager:onPlayerLoggedIn(pCreatureObject)
 
 	self:checkIfProgressedToJedi(pCreatureObject)
 	self:registerObservers(pCreatureObject)
+	
+	-- Check Knight eligibility
+	if self:checkKnightEligibility(pCreatureObject) then
+		local suiManager = LuaSuiManager()
+		suiManager:sendMessageBox(pCreatureObject, pCreatureObject, "Jedi Knight", "You have proven yourself worthy. Meditate at a Force Shrine to become a Jedi Knight.", "@ok", "HologrindJediManager", "notifyOkPressed")
+	end
+end
+
+-- Check if the player is eligible to become a Jedi Knight.
+-- @param pCreatureObject pointer to the creature object of the player to check.
+-- @return true if eligible, false otherwise.
+function HologrindJediManager:checkKnightEligibility(pCreatureObject)
+	local pGhost = CreatureObject(pCreatureObject):getPlayerObject()
+	if (pGhost == nil) then
+		return false
+	end
+	
+	-- Must have Padawan rank but not Knight rank
+	if not CreatureObject(pCreatureObject):hasSkill("force_title_jedi_rank_02") then
+		return false
+	end
+	if CreatureObject(pCreatureObject):hasSkill("force_title_jedi_rank_03") then
+		return false
+	end
+	
+	-- Must be Hologrind Jedi
+	local hologrindProfessions = PlayerObject(pGhost):getHologrindProfessions()
+	if (hologrindProfessions == nil or #hologrindProfessions == 0) then
+		return false
+	end
+	
+	-- Must have 5000+ faction points in rebel OR imperial
+	local rebelPoints = PlayerObject(pGhost):getFactionStanding("rebel")
+	local imperialPoints = PlayerObject(pGhost):getFactionStanding("imperial")
+	
+	return (rebelPoints >= 5000 or imperialPoints >= 5000)
+end
+
+-- Promote player to Jedi Knight based on faction standing.
+-- @param pCreatureObject pointer to the creature object of the player to promote.
+function HologrindJediManager:promoteToKnight(pCreatureObject)
+	local pGhost = CreatureObject(pCreatureObject):getPlayerObject()
+	if (pGhost == nil) then
+		return
+	end
+	
+	-- Determine council based on faction
+	local rebelPoints = PlayerObject(pGhost):getFactionStanding("rebel")
+	local imperialPoints = PlayerObject(pGhost):getFactionStanding("imperial")
+	local councilType, knightRobe, unlockMusic, jediState, setFactionVal
+	
+	if rebelPoints >= 5000 and imperialPoints >= 5000 then
+		-- Both factions met - use highest
+		if rebelPoints > imperialPoints then
+			councilType = 1 -- COUNCIL_LIGHT
+		else
+			councilType = 2 -- COUNCIL_DARK
+		end
+	elseif rebelPoints >= 5000 then
+		councilType = 1 -- COUNCIL_LIGHT
+	else
+		councilType = 2 -- COUNCIL_DARK
+	end
+	
+	-- Set council-specific values
+	if councilType == 1 then -- COUNCIL_LIGHT
+		knightRobe = "object/tangible/wearables/robe/robe_jedi_light_s01.iff"
+		unlockMusic = "sound/music_become_light_jedi.snd"
+		jediState = 4
+		setFactionVal = FACTIONREBEL
+	else -- COUNCIL_DARK
+		knightRobe = "object/tangible/wearables/robe/robe_jedi_dark_s01.iff"
+		unlockMusic = "sound/music_become_dark_jedi.snd"
+		jediState = 8
+		setFactionVal = FACTIONIMPERIAL
+	end
+	
+	-- Award Knight rank
+	awardSkill(pCreatureObject, "force_title_jedi_rank_03")
+	
+	-- Set FRS data
+	PlayerObject(pGhost):setJediState(jediState)
+	PlayerObject(pGhost):setFrsCouncil(councilType)
+	PlayerObject(pGhost):setFrsRank(0)
+	
+	-- Set faction status
+	CreatureObject(pCreatureObject):setFactionStatus(2) -- Overt
+	CreatureObject(pCreatureObject):setFaction(setFactionVal)
+	
+	-- Store council for tracking
+	writeScreenPlayData(pCreatureObject, "HologrindKnight", "council", councilType)
+	writeScreenPlayData(pCreatureObject, "HologrindKnight", "promoted", 1)
+	
+	-- Give Knight Robe
+	local pInventory = SceneObject(pCreatureObject):getSlottedObject("inventory")
+	if (pInventory ~= nil and not SceneObject(pInventory):isContainerFullRecursive()) then
+		giveItem(pInventory, knightRobe, -1)
+	else
+		CreatureObject(pCreatureObject):sendSystemMessage("@jedi_spam:inventory_full_jedi_robe")
+	end
+	
+	-- Give Legendary Krayt Dragon Pearl
+	self:giveLegendaryKraytPearl(pCreatureObject)
+	
+	-- Effects and messages
+	CreatureObject(pCreatureObject):playMusicMessage(unlockMusic)
+	playClientEffectLoc(pCreatureObject, "clienteffect/trap_electric_01.cef", 
+		CreatureObject(pCreatureObject):getZoneName(), 
+		CreatureObject(pCreatureObject):getPositionX(), 
+		CreatureObject(pCreatureObject):getPositionZ(), 
+		CreatureObject(pCreatureObject):getPositionY(), 
+		CreatureObject(pCreatureObject):getParentID())
+	
+	local councilName = (councilType == 1) and "Light" or "Dark"
+	CreatureObject(pCreatureObject):sendSystemMessage("You have become a Jedi Knight of the " .. councilName .. " Council!")
+end
+
+-- Give a Legendary Krayt Dragon Pearl to the player.
+-- @param pCreatureObject pointer to the creature object of the player.
+function HologrindJediManager:giveLegendaryKraytPearl(pCreatureObject)
+	local pInventory = SceneObject(pCreatureObject):getSlottedObject("inventory")
+	if (pInventory == nil or SceneObject(pInventory):isContainerFullRecursive()) then
+		CreatureObject(pCreatureObject):sendSystemMessage("Your inventory is full. Unable to give Legendary Krayt Dragon Pearl.")
+		return
+	end
+	
+	local pPearl = giveItem(pInventory, "object/tangible/component/weapon/lightsaber/lightsaber_module_krayt_dragon_pearl.iff", -1)
+	if (pPearl ~= nil) then
+		SceneObject(pPearl):setCustomObjectName("Legendary Krayt Dragon Pearl")
+		CreatureObject(pCreatureObject):sendSystemMessage("You have received a Legendary Krayt Dragon Pearl!")
+	end
+end
+
+-- Revoke Knight status from player, allowing them to re-promote.
+-- @param pCreatureObject pointer to the creature object of the player.
+function HologrindJediManager:revokeKnightStatus(pCreatureObject)
+	local pGhost = CreatureObject(pCreatureObject):getPlayerObject()
+	if (pGhost == nil) then
+		return
+	end
+	
+	-- Remove Knight rank (keep Padawan)
+	CreatureObject(pCreatureObject):removeSkill("force_title_jedi_rank_03")
+	
+	-- Reset to Padawan Jedi state
+	PlayerObject(pGhost):setJediState(2)
+	
+	-- Clear FRS data
+	PlayerObject(pGhost):setFrsCouncil(0)
+	PlayerObject(pGhost):setFrsRank(-1)
+	
+	-- Keep faction but reset status to neutral
+	CreatureObject(pCreatureObject):setFactionStatus(0)
+	
+	CreatureObject(pCreatureObject):sendSystemMessage("Your Jedi Knight status has been revoked. You may meditate again to restore it.")
 end
 
 -- Get the profession name from the badge number.

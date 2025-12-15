@@ -3,12 +3,37 @@ ForceShrineMenuComponent = {}
 function ForceShrineMenuComponent:fillObjectMenuResponse(pSceneObject, pMenuResponse, pPlayer)
 	local menuResponse = LuaObjectMenuResponse(pMenuResponse)
 
-	if (CreatureObject(pPlayer):hasSkill("force_title_jedi_novice")) then
+	-- Check if player has jedi novice skill OR is Force Sensitive (JediState 1) with Hologrind professions
+	local canMeditate = CreatureObject(pPlayer):hasSkill("force_title_jedi_novice")
+	
+	if not canMeditate then
+		local pGhost = CreatureObject(pPlayer):getPlayerObject()
+		if (pGhost ~= nil) then
+			local jediState = PlayerObject(pGhost):getJediState()
+			local hologrindProfessions = PlayerObject(pGhost):getHologrindProfessions()
+			
+			-- Allow meditation if player is Force Sensitive (state 1) with Hologrind professions
+			if (jediState == 1 and hologrindProfessions ~= nil and #hologrindProfessions > 0) then
+				canMeditate = true
+			end
+		end
+	end
+	
+	if canMeditate then
 		menuResponse:addRadialMenuItem(120, 3, "@jedi_trials:meditate") -- Meditate
 	end
 
 	if (CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02")) then
 		menuResponse:addRadialMenuItem(121, 3, "@force_rank:recover_jedi_items") -- Recover Jedi Items
+		
+		-- Add revoke option for Hologrind Knights
+		local pGhost = CreatureObject(pPlayer):getPlayerObject()
+		if (pGhost ~= nil and CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_03")) then
+			local hologrindProfessions = PlayerObject(pGhost):getHologrindProfessions()
+			if (hologrindProfessions ~= nil and #hologrindProfessions > 0) then
+				menuResponse:addRadialMenuItem(122, 3, "Revoke Knight Status")
+			end
+		end
 	end
 
 end
@@ -18,22 +43,67 @@ function ForceShrineMenuComponent:handleObjectMenuSelect(pObject, pPlayer, selec
 		return 0
 	end
 
-	if (selectedID == 120 and CreatureObject(pPlayer):hasSkill("force_title_jedi_novice")) then
-		if (CreatureObject(pPlayer):getPosture() ~= CROUCHED) then
-			CreatureObject(pPlayer):sendSystemMessage("@jedi_trials:show_respect") -- Must respect
-		else
-			self:doMeditate(pObject, pPlayer)
+	if (selectedID == 120) then
+		-- Check if player has jedi novice skill OR is Force Sensitive (JediState 1) with Hologrind professions
+		local canMeditate = CreatureObject(pPlayer):hasSkill("force_title_jedi_novice")
+		
+		if not canMeditate then
+			local pGhost = CreatureObject(pPlayer):getPlayerObject()
+			if (pGhost ~= nil) then
+				local jediState = PlayerObject(pGhost):getJediState()
+				local hologrindProfessions = PlayerObject(pGhost):getHologrindProfessions()
+				
+				-- Allow meditation if player is Force Sensitive (state 1) with Hologrind professions
+				if (jediState == 1 and hologrindProfessions ~= nil and #hologrindProfessions > 0) then
+					canMeditate = true
+				end
+			end
+		end
+		
+		if canMeditate then
+			if (CreatureObject(pPlayer):getPosture() ~= CROUCHED) then
+				CreatureObject(pPlayer):sendSystemMessage("@jedi_trials:show_respect") -- Must respect
+			else
+				self:doMeditate(pObject, pPlayer)
+			end
 		end
 	elseif (selectedID == 121 and CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02")) then
 		self:recoverRobe(pPlayer)
+	elseif (selectedID == 122 and CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_03")) then
+		-- Show confirmation dialog before revoking
+		local sui = SuiMessageBox.new("ForceShrineMenuComponent", "confirmRevokeKnightStatus")
+		sui.setTitle("Revoke Knight Status")
+		sui.setPrompt("Are you sure you want to revoke your Jedi Knight status? You will return to Padawan rank but can re-promote at any time by meditating at this shrine.")
+		sui.setOkButtonText("Yes")
+		sui.setCancelButtonText("No")
+		sui.sendTo(pPlayer)
 	end
 
 	return 0
 end
 
+function ForceShrineMenuComponent:confirmRevokeKnightStatus(pPlayer, pSui, eventIndex, args)
+	local cancelPressed = (eventIndex == 1)
+	
+	if (cancelPressed or pPlayer == nil) then
+		return
+	end
+	
+	-- Player confirmed, proceed with revocation
+	HologrindJediManager = require("managers.jedi.hologrind_jedi_manager")
+	HologrindJediManager:revokeKnightStatus(pPlayer)
+end
+
 function ForceShrineMenuComponent:doMeditate(pObject, pPlayer)
 	if (tonumber(readScreenPlayData(pPlayer, "KnightTrials", "completedTrials")) == 1 and not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_03")) then
 		KnightTrials:resetCompletedTrialsToStart(pPlayer)
+	end
+	
+	-- Check Hologrind Knight eligibility FIRST (before other checks)
+	HologrindJediManager = require("managers.jedi.hologrind_jedi_manager")
+	if (HologrindJediManager:checkKnightEligibility(pPlayer)) then
+		HologrindJediManager:promoteToKnight(pPlayer)
+		return
 	end
 	
 	-- Check if player is in Force Sensitive state (state 1) for Hologrind progression
@@ -45,7 +115,6 @@ function ForceShrineMenuComponent:doMeditate(pObject, pPlayer)
 		-- If player is Force Sensitive (state 1) and on Hologrind progression (has professions assigned), unlock them fully
 		if (jediState == 1 and hologrindProfessions ~= nil and #hologrindProfessions > 0) then
 			-- Award Jedi skills and starter kit via HologrindJediManager
-			HologrindJediManager = require("managers.jedi.hologrind_jedi_manager")
 			HologrindJediManager:awardJediStatusAndSkill(pPlayer)
 			CreatureObject(pPlayer):sendSystemMessage("You have unlocked the path of the Jedi!")
 			return
