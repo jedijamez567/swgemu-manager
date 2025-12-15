@@ -272,8 +272,12 @@ function HologrindJediManager:checkIfProgressedToJedi(pCreatureObject)
 	
 	-- If player has mastered professions and hasn't started Jedi unlock yet
 	if self:getNumberOfMasteredProfessions(pCreatureObject) >= NUMBEROFPROFESSIONSTOMASTER and jediState == 0 then
+		-- Grant force_title_jedi_novice skill immediately so player can interact with shrines
+		awardSkill(pCreatureObject, "force_title_jedi_novice")
+		
 		-- Show meditation message and create waypoint
 		self:sendSuiWindow(pCreatureObject)
+		
 		-- Set Jedi state to 1 (awaiting meditation)
 		PlayerObject(pGhost):setJediState(1)
 	end
@@ -309,6 +313,18 @@ function HologrindJediManager:onPlayerLoggedIn(pCreatureObject)
 
 	self:checkIfProgressedToJedi(pCreatureObject)
 	self:registerObservers(pCreatureObject)
+	
+	-- Award novice skill if player is Force Sensitive but doesn't have it yet (like Village system does)
+	local pGhost = CreatureObject(pCreatureObject):getPlayerObject()
+	if (pGhost ~= nil) then
+		local jediState = PlayerObject(pGhost):getJediState()
+		local hologrindProfessions = PlayerObject(pGhost):getHologrindProfessions()
+		
+		-- If player is in Jedi State 1 (Force Sensitive) with Hologrind professions, ensure they have novice skill
+		if (jediState == 1 and hologrindProfessions ~= nil and #hologrindProfessions > 0 and not CreatureObject(pCreatureObject):hasSkill("force_title_jedi_novice")) then
+			awardSkill(pCreatureObject, "force_title_jedi_novice")
+		end
+	end
 	
 	-- Check Knight eligibility
 	if self:checkKnightEligibility(pCreatureObject) then

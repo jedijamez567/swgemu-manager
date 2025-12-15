@@ -3,23 +3,7 @@ ForceShrineMenuComponent = {}
 function ForceShrineMenuComponent:fillObjectMenuResponse(pSceneObject, pMenuResponse, pPlayer)
 	local menuResponse = LuaObjectMenuResponse(pMenuResponse)
 
-	-- Check if player has jedi novice skill OR is Force Sensitive (JediState 1) with Hologrind professions
-	local canMeditate = CreatureObject(pPlayer):hasSkill("force_title_jedi_novice")
-	
-	if not canMeditate then
-		local pGhost = CreatureObject(pPlayer):getPlayerObject()
-		if (pGhost ~= nil) then
-			local jediState = PlayerObject(pGhost):getJediState()
-			local hologrindProfessions = PlayerObject(pGhost):getHologrindProfessions()
-			
-			-- Allow meditation if player is Force Sensitive (state 1) with Hologrind professions
-			if (jediState == 1 and hologrindProfessions ~= nil and #hologrindProfessions > 0) then
-				canMeditate = true
-			end
-		end
-	end
-	
-	if canMeditate then
+	if (CreatureObject(pPlayer):hasSkill("force_title_jedi_novice")) then
 		menuResponse:addRadialMenuItem(120, 3, "@jedi_trials:meditate") -- Meditate
 	end
 
@@ -43,29 +27,11 @@ function ForceShrineMenuComponent:handleObjectMenuSelect(pObject, pPlayer, selec
 		return 0
 	end
 
-	if (selectedID == 120) then
-		-- Check if player has jedi novice skill OR is Force Sensitive (JediState 1) with Hologrind professions
-		local canMeditate = CreatureObject(pPlayer):hasSkill("force_title_jedi_novice")
-		
-		if not canMeditate then
-			local pGhost = CreatureObject(pPlayer):getPlayerObject()
-			if (pGhost ~= nil) then
-				local jediState = PlayerObject(pGhost):getJediState()
-				local hologrindProfessions = PlayerObject(pGhost):getHologrindProfessions()
-				
-				-- Allow meditation if player is Force Sensitive (state 1) with Hologrind professions
-				if (jediState == 1 and hologrindProfessions ~= nil and #hologrindProfessions > 0) then
-					canMeditate = true
-				end
-			end
-		end
-		
-		if canMeditate then
-			if (CreatureObject(pPlayer):getPosture() ~= CROUCHED) then
-				CreatureObject(pPlayer):sendSystemMessage("@jedi_trials:show_respect") -- Must respect
-			else
-				self:doMeditate(pObject, pPlayer)
-			end
+	if (selectedID == 120 and CreatureObject(pPlayer):hasSkill("force_title_jedi_novice")) then
+		if (CreatureObject(pPlayer):getPosture() ~= CROUCHED) then
+			CreatureObject(pPlayer):sendSystemMessage("@jedi_trials:show_respect") -- Must respect
+		else
+			self:doMeditate(pObject, pPlayer)
 		end
 	elseif (selectedID == 121 and CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02")) then
 		self:recoverRobe(pPlayer)
