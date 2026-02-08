@@ -1,4 +1,4 @@
 [submodule "Core3"]
 	path = Core3
-	url = https://github.com/swgemu/Core3.git
-	branch = unstable
+	url = git@github.com:jedijamez567/Core3.git
+	branch = custom
