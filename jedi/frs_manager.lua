@@ -1,5 +1,9 @@
 frsEnabled = 1
 
+-- Enable automatic promotion when player gains enough FRS XP (bypasses voting system)
+-- Set to 1 to enable auto-promotion, 0 to require voting/challenges
+autoPromotionEnabled = 1
+
 -- Object ID of Enclave buildings
 lightEnclaveID = 8525417
 darkEnclaveID = 3435626
