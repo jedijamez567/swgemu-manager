@@ -1,93 +1,71 @@
-# swgemu-manager
-```
-A Docker image and docker-compose file setup for running an SWGEmu dev environment in Docker.
-```
+# SWGEmu Manager
 
-## Overview
-This repo contains a Dockerfile, docker-compose.yml, and other supporting files to run [SWGEmu](https://www.swgemu.com/) in a Docker container. It is loosely based off of the work on [ZonamaDev VM](https://github.com/Zonama/ZonamaDev).
+Dockerized [SWGEmu](https://www.swgemu.com/) server built on [Core3](https://github.com/swgemu/Core3). Spin up a full server (Core3 + MySQL) with `docker-compose up`.
 
-The [Core3](https://github.com/swgemu/Core3) source is included as a submodule for convenience but this repo is mainly intended to be an example of how to build and deploy [Core3](https://github.com/swgemu/Core3) locally with MySQL alongside in order to facilicate both a lighter development environment than the [ZonamaDev VM](https://github.com/Zonama/ZonamaDev) as well as an eventual path to creating production images that could be used to host SWGEmu servers. 
+## Quick Start
 
-### Features
+1. **Clone with submodules:**
+   ```bash
+   git clone --recurse-submodules git@github.com:jedijamez567/swgemu-manager.git
+   ```
 
-* A Dockerfile to build an image that will run the SWGEmu Core3 server
-* A docker-compose file for an easy start of the Core3 server and MySQL
-* Pre-created admin account
-* Additional items/professions enabled on the BlueFrog terminals for testing
-* Graceful Shutdown
-* REST API for programmatic server management
-* Streamlit client for interacting with the REST API
+2. **Add `tre` files** from your SWG client install into the `./tre` directory. Required files are listed in `Core3/MMOCoreORB/bin/conf/config.lua`.
 
-## Getting Started
+3. **Build and run:**
+   ```bash
+   docker-compose up -d
+   ```
+   First build takes 15-30 minutes. The server will generate navmesh data on first run (cached for future starts).
 
-### Prerequisites
+4. **Login** via the SWGEmu Launchpad (set server to `local`):
+   ```
+   user: admin
+   pass: admin
+   ```
 
-* Install Docker (CE) and Docker Compose - https://docs.docker.com/v17.09/engine/installation/
-* Game `tre` files from an SWGEmu install
+## Project Structure
 
-### Adding `tre` Files
+All gameplay customizations live in the root directory. At container startup, `docker-compose` volume-mounts these files/directories directly over their counterparts inside the compiled Core3 image. This means you can change any Lua config, manager script, or screenplay and just restart the container — no recompile needed.
 
-In order for the server to run successfully, the game `tre` files will need to be added to the `./tre` directory of this repository. This directory will be mounted as a volume inside the container at runtime to provide the files to the server.
+| Directory / File | Mounts Over (in container) | Purpose |
+|---|---|---|
+| `conf/` | `bin/conf/` | Server config, features, admin/ban lists, MOTD, SSL |
+| `commands/` | `bin/scripts/commands/` | Slash command definitions |
+| `player_creation_manager/` | `bin/scripts/managers/player_creation_manager.lua` | Starting inventory, species, professions |
+| `player_manager/` | `bin/scripts/managers/player_manager.lua` | Player management settings |
+| `loot_manager/` | `bin/scripts/managers/loot_manager.lua` | Loot tables and drop rates |
+| `resource_manager/` | `bin/scripts/managers/resource_manager_spawns.lua` | Resource spawn config |
+| `mission_manager/` | `bin/scripts/managers/mission/mission_manager.lua` | Mission settings |
+| `planet_manager/` | `bin/scripts/managers/planet_manager.lua` | Planet/zone settings |
+| `jedi/` | `bin/scripts/managers/jedi/` | Jedi unlock system |
+| `screenplays/` | `bin/scripts/screenplays/jedi/` | Screenplay overrides |
+| `sql/` | MySQL init scripts | Database seed (admin account, schema) |
+| `tre/` | SWG client data | Game `tre` files (not committed) |
+| `log/` | `bin/log/` | Server logs (persisted) |
+| `navmeshes/` | `bin/navmeshes/` | Navmesh cache (persisted) |
+| `databases/` | `bin/databases/` | Runtime databases (persisted) |
 
-A list of the required files can be found in the [./Core3/MMOCoreORB/bin/conf/config.lua](Core3/MMOCoreORB/bin/conf/config.lua) file.
+## Core3 Submodule Workflow
 
-> **NOTE**: These files are kept separate as they originate from the client. They should not be included in any images, published to any public Docker image repository, or pushed to any remote git repositories.
+The `Core3` submodule points to a [personal fork](https://github.com/jedijamez567/Core3) on the `custom` branch. This branch contains modifications that allow Core3 to read configs from the root directory. The official repo (`swgemu/Core3`) is kept as the `origin` remote so upstream changes can be merged in.
 
-### Building the Image
-
-The image can be built using `docker-compose` or manually using `Docker`.
-
-> **NOTE**: Before building, ensure you have updated both submodules (Core3 and subsequently engine3). <br>
-> ie. ```git submodule update --init --recursive```
-
-docker-compose:
-```$bash
-$ docker-compose build
-```
-
-Manually using Docker:
-```$bash
-$ docker build . -t swgemu:dev
-```
-
-The image build will likely take 15-30 minutes depending on the specs of the machine doing the building.
-
-### Starting the Server and Database
-
-The docker-compose file can be used to run a fresh server out of the box:
-
-```$bash
-$ docker-compose up -d
-```
-
-On the first run, this will start a MySQL container and create the SWGEmu database from scratch using the [swgemu.sql](Core3/MMOCoreORB/sql/swgemu.sql) script to create the schema. Once the container is up and running it will automatically build the SWGEmu Docker image and start it with the appropriate parameters.
-
-On start, the server will take some time to create the navmesh data required at runtime. This data is saved in the navemesh volume for future runs.
-
-### Logging into the Server
-
-Using the SWGEmu Launchpad, make sure that the server selected is `local` prior to launching the game. Whem prompted for credentials, use the following:
-
-```
-user: admin
-pass: admin
+**Pulling upstream updates:**
+```bash
+cd Core3
+git fetch origin
+git merge origin/unstable
+git push myfork custom
+cd ..
+git add Core3
+git commit -m "update Core3 from upstream"
 ```
 
-This user account is setup by the [admin_account.sql](sql/02-admin_account.sql) and will have full admin privileges. Additional user accounts can be setup simply by logging in with a new user/pass combination. These accounts will not have full admin rights.
-
+**Remotes inside `Core3/`:**
+- `origin` — official `swgemu/Core3` (read-only, for fetching updates)
+- `myfork` — `jedijamez567/Core3` (your fork, where `custom` branch lives)
 
 ## Server Management
 
-### Connecting to the MySQL Database
-
-You can connect to the MySQL database using `localhost:3306` using any MySQL compatible tool. The root password can be found in the [docker-compose.yml](docker-compose.yml)
-
-### Using the REST API
-
-The server includes a REST API that provides programmatic access to server information and management capabilities. See [REST_API_SETUP.md](REST_API_SETUP.md) for details on using the API.
-
-A Streamlit-based client application (`swgemu_api_client.py`) is provided for easy interaction with the REST API.
-
-### In-game Commands
-
-All admin commands will be available to the default admin/admin account. You can find a full list of SWGAdmin commands here: [CommandsV2](https://drive.google.com/file/d/0BwjBDOFpOsM5OEVuMDh1U3BDYnM/view)
+- **MySQL:** Connect to `localhost:3306` (root password in `docker-compose.yml`)
+- **REST API:** See [REST_API_SETUP.md](REST_API_SETUP.md)
+- **Admin commands:** Full list at [SWGAdmin Commands](https://drive.google.com/file/d/0BwjBDOFpOsM5OEVuMDh1U3BDYnM/view)

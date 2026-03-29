@@ -41,7 +41,9 @@ RUN sed -i 's/..\/..\/Core3\///' .git/modules/MMOCoreORB/utils/engine3/config &&
     sed -i 's/..\/.git\/modules\/Core3\//.git\//' MMOCoreORB/utils/engine3/.git
 
 WORKDIR /app/MMOCoreORB
-RUN make build-ninja-debug
+#RUN make build-ninja-debug
+RUN CMAKE_ARGS="-DENABLE_REST_SERVER=ON" make build-ninja-debug
+
 
 # Create final image that could be used as a 
 # lighter-weight production image

@@ -51,5 +51,7 @@ services:
       - ./log:/app/MMOCoreORB/bin/log
       - ./navmeshes:/app/MMOCoreORB/bin/navmeshes
       - ./databases:/app/MMOCoreORB/bin/databases
+      - ./jedi:/app/MMOCoreORB/bin/scripts/managers/jedi
+      - ./screenplays/jedi:/app/MMOCoreORB/bin/scripts/screenplays/jedi
     stop_grace_period: 1m
     restart: always
