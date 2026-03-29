@@ -11,3 +11,9 @@ Core3.RESTServer = {
     SSLKeyFile = "conf/ssl.key",
     SSLCertFile = "conf/ssl.crt"
 }
+
+-- Enable Galaxy-Wide Grouping
+Core3.PlayerManager = {
+    GalaxyWideGrouping = 1  -- 1 = true, 0 = false
+}
+
