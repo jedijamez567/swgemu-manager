@@ -1,0 +1,119 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+SWGEmu Manager is a Docker-based system for running a customized Star Wars Galaxies Emulator (SWGEmu) server on Core3. It uses volume-mounted Lua files to override Core3 defaults at runtime, enabling hot-reload configuration changes without recompilation.
+
+## Architecture
+
+**Docker Compose** orchestrates two services:
+- **swgemu_database**: MySQL 5.7.28 (port 3306), initialized from `sql/` scripts
+- **swgemu_server**: Core3 game server (multi-stage Docker build from Ubuntu 16.04), compiled with `-DENABLE_REST_SERVER=ON`
+
+**Core design pattern**: All Lua customizations in the repo root are volume-mounted over Core3 defaults at container startup. Restart the container to pick up changes — no recompile needed unless Core3 C++ source changes.
+
+**Core3 submodule** (`Core3/`): Custom fork at `jedijamez567/Core3`. Upstream is `swgemu/Core3`. Submodule changes require a full rebuild (`docker-compose down && docker-compose up -d --build`).
+
+## Build & Run Commands
+
+```bash
+# Start server (first run builds Core3, takes 15-30 min)
+docker-compose up -d
+
+# Hot-reload Lua changes (no recompile)
+docker-compose restart swgemu
+
+# Full rebuild (after Core3 submodule changes)
+docker-compose down && docker-compose up -d --build
+
+# View logs
+docker-compose logs -f swgemu
+
+# Database access
+mysql -h localhost -u swgemu -p swgemu-sql swgemu
+```
+
+## Lua Configuration Layout
+
+All Lua files mount over Core3 defaults in the container. Key files:
+
+| Path | Purpose |
+|------|---------|
+| `conf/config.lua` | Main server config (database, network, galaxy, zones, TRE files) |
+| `conf/config-local.lua` | Local overrides (REST API settings, galaxy-wide grouping) |
+| `conf/features.lua` | Feature toggles (jedi system, armor, GCW) |
+| `player_manager/player_manager.lua` | Player settings (XP multipliers, buffs, PvP, account limits) |
+| `player_creation_manager/player_creation_manager.lua` | New character setup (starting items, species, professions) |
+| `loot_manager/loot_manager.lua` | Loot drop system (chances, rarity tiers, armor stat mods) |
+| `resource_manager/resource_manager_spawns.lua` | Resource spawn data (~370K lines) |
+| `jedi/` | Jedi unlock system — `hologrind_jedi_manager.lua` is primary |
+| `commands/` | ~150 slash command definitions, mounted to `bin/scripts/commands/` |
+| `screenplays/jedi/` | Jedi trials, padawan convos, Force shrine components |
+
+## Server Details
+
+- Galaxy: Chevelle (ID 2)
+- Default admin: admin/admin (set in `sql/02-admin_account.sql`)
+- REST API: port 44443, token in `config-local.lua`
+- Ports: 44419 (ORB), 44453 (Login), 44455 (Status), 44462-44463 (Zone), 44460 (Web)
+
+## Utility Tools
+
+- **Loot Generator** (`Loot Generator/`): Streamlit app for generating admin loot commands. Run with `streamlit run app.py`.
+- **API Client** (`swgemu_api_client.py`): Streamlit-based REST API browser.
+- **Loot Parser** (`Loot Generator/parse_loot_groups.py`): Parses Core3 loot group Lua files into `loot_database.json`.
+
+## Core3 Engine Architecture
+
+Core3 (`Core3/` submodule) is the SWGEmu game server engine. It has its own submodule, **Engine3** (`swgemu/engine3`), for networking/ORB/threading.
+
+### Directory Structure
+
+```
+Core3/MMOCoreORB/
+  CMakeLists.txt          # Build definition (CMake 3.7+, C++14, Clang 16+ or GCC 5.4+)
+  Makefile                # Convenience wrapper (make build-ninja-debug for Docker)
+  src/                    # All C++ source
+    server/
+      ServerCore.cpp      # Top-level initialization
+      zone/               # Core gameplay logic
+        Zone*.idl          # Planet zones (ground + space)
+        objects/           # 24 game object types (scene, creature, player, tangible, etc.)
+        managers/          # ~40 game system managers (combat, loot, jedi, crafting, etc.)
+        packets/           # Network protocol definitions
+      chat/               # Chat system
+      login/              # Login server
+      web/                # REST API server
+    conf/                 # ConfigManager (reads config.lua)
+    templates/            # Template data definitions
+    terrain/              # Terrain processing
+    tre3/                 # TRE file reader
+  bin/                    # Runtime directory
+    conf/                 # Default config.lua, features.lua
+    scripts/              # Default Lua scripts (commands, managers, screenplays, loot, etc.)
+  utils/engine3/          # Engine3 submodule
+```
+
+### IDL System
+
+Core3 uses a custom Interface Definition Language (`.idl` files) compiled by `MMOEngine/bin/idlc`. IDL files define distributed objects (e.g., `SceneObject.idl`, `CreatureObject.idl`, `PlayerObject.idl`) and generate C++ stubs. Developers write `*Implementation.cpp` files; the IDL compiler generates the rest.
+
+### Lua-C++ Integration
+
+- **DirectorManager** (`src/server/zone/managers/director/`): Primary Lua-C++ bridge. Manages "screenplays" (Lua-scripted game content) with event scheduling, quest state, and observer patterns.
+- **Lua binding classes**: Each major object has a `Lua*` wrapper (e.g., `LuaCreatureObject`, `LuaPlayerObject`) exposing C++ methods to Lua.
+- **Command pattern**: Lua files define command parameters (damage, cost, range, animation); C++ `*Command.h` headers implement the behavior.
+- **Feature toggles**: `features.lua` values are read by `Features.cpp` via `features->get("featureKey")`.
+
+### Volume Mount Overlay
+
+The swgemu-manager repo mounts customized Lua files over Core3's `bin/scripts/` and `bin/conf/` defaults at container runtime. This is why Lua changes only need a container restart. The mount order in docker-compose matters — specific file mounts override directory mounts.
+
+## Important Notes
+
+- TRE files must be manually placed in `./tre/` (not version controlled, ~2+ GB)
+- `resource_manager_spawns.lua` is extremely large — avoid reading the entire file
+- Lua command files follow the pattern: `CommandName = { name = "commandname" }; AddCommand(CommandName)`
+- The Jedi system is configured in `conf/features.lua` via `jediSystem` (options: hologrind, village, custom)
