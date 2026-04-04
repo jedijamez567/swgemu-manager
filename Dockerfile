@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y build-essential \
     liblua5.3-dev \
     libdb5.3-dev \
     libssl-dev \
-    libboost-all-dev
+    libboost-all-dev \
+    libcpprest-dev
 
 COPY scripts /app/scripts
 RUN ln -s /app/scripts/swgemu.sh /usr/bin/swgemu
@@ -42,7 +43,7 @@ RUN sed -i 's/..\/..\/Core3\///' .git/modules/MMOCoreORB/utils/engine3/config &&
 
 WORKDIR /app/MMOCoreORB
 #RUN make build-ninja-debug
-RUN CMAKE_ARGS="-DENABLE_REST_SERVER=ON" make build-ninja-debug
+RUN make build-ninja-debug NINJA_JOBS=6 CMAKE_ARGS="-DENABLE_REST_SERVER=ON"
 
 
 # Create final image that could be used as a 
