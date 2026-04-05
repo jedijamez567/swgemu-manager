@@ -44,8 +44,8 @@ All Lua files mount over Core3 defaults in the container. Key files:
 | `conf/config.lua` | Main server config (database, network, galaxy, zones, TRE files) |
 | `conf/config-local.lua` | Local overrides (REST API settings, galaxy-wide grouping) |
 | `conf/features.lua` | Feature toggles (jedi system, armor, GCW) |
-| `player_manager/player_manager.lua` | Player settings (XP multipliers, buffs, PvP, account limits) |
-| `player_creation_manager/player_creation_manager.lua` | New character setup (starting items, species, professions) |
+| `player_manager/player_manager.lua` | Player settings (XP multipliers, buffs, PvP, account limits, vehicle call delay) |
+| `player_creation_manager/player_creation_manager.lua` | New character setup (starting items, species, professions, creation cooldown) |
 | `loot_manager/loot_manager.lua` | Loot drop system (chances, rarity tiers, armor stat mods) |
 | `resource_manager/resource_manager_spawns.lua` | Resource spawn data (~370K lines) |
 | `jedi/` | Jedi unlock system — `hologrind_jedi_manager.lua` is primary |
@@ -107,6 +107,32 @@ Core3 uses a custom Interface Definition Language (`.idl` files) compiled by `MM
 - **Lua binding classes**: Each major object has a `Lua*` wrapper (e.g., `LuaCreatureObject`, `LuaPlayerObject`) exposing C++ methods to Lua.
 - **Command pattern**: Lua files define command parameters (damage, cost, range, animation); C++ `*Command.h` headers implement the behavior.
 - **Feature toggles**: `features.lua` values are read by `Features.cpp` via `features->get("featureKey")`.
+
+### Manager Lua Config Pattern
+
+Each C++ manager reads its Lua config via a `loadLuaConfig()` method. The pattern for adding a new configurable value:
+
+1. **Lua**: Add a global variable in the manager's Lua script (e.g., `bin/scripts/managers/player_creation_manager.lua`)
+2. **C++ Header**: Declare a member variable in the manager's `.h` file
+3. **C++ loadLuaConfig()**: Read the value using the Lua API (e.g., `lua->getGlobalInt("varName")`)
+
+Available Lua API methods (from `Engine3/MMOEngine/src/engine/lua/Lua.h`):
+- `getGlobalInt(name)` — 32-bit int
+- `getGlobalLong(name)` — 64-bit int
+- `getGlobalByte(name)` — byte (used for booleans: 0/1)
+- `getGlobalString(name)` — string
+- `getGlobalFloat(name)` — float
+- `getGlobalBoolean(name)` — bool
+- `getGlobalObject(name)` — Lua table (returns `LuaObject`)
+
+Example from `PlayerCreationManager.cpp`:
+```cpp
+lua->runFile("scripts/managers/player_creation_manager.lua");
+startingCash = lua->getGlobalInt("startingCash");
+freeGodMode = lua->getGlobalByte("freeGodMode");
+```
+
+The volume-mounted Lua override takes precedence over the Core3 default, so Lua-only changes just need a container restart. C++ changes (adding the member variable / read call) require a full rebuild.
 
 ### Volume Mount Overlay
 

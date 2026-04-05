@@ -67,6 +67,9 @@ baseStoredDroids = 5
 baseStoredVehicles = 3
 baseStoredShips = 3
 
+--Delay in seconds before a vehicle spawns when called outside a city/camp. Set to 0 for instant.
+vehicleCallDelay = 0
+
 -----------------------------------
 --VETERAN REWARDS CONFIG
 -----------------------------------

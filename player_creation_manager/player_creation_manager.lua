@@ -1,3 +1,6 @@
+--Character creation cooldown in seconds. Set to 0 to disable.
+characterCreationCooldown = 0
+
 --Should all created players start with God Mode? 1 = yes, 0 = no
 freeGodMode = 0;
 --Allow Jedi as a starting profession? 1 = yes, 0 = no
