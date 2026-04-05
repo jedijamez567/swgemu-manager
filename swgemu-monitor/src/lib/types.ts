@@ -91,3 +91,106 @@ export const MISSION_TYPES = [
 ] as const;
 
 export type MissionType = (typeof MISSION_TYPES)[number];
+
+// Database types (from MySQL)
+
+export interface Galaxy {
+  galaxy_id: number;
+  name: string;
+  address: string;
+  port: number;
+  pingport: number;
+  population: number;
+}
+
+export interface Account {
+  account_id: number;
+  username: string;
+  created: string;
+  active: number;
+  admin_level: number;
+  character_count?: number;
+}
+
+export interface Character {
+  character_oid: string;
+  account_id: number;
+  galaxy_id: number;
+  firstname: string;
+  surname: string | null;
+  race: number;
+  gender: number;
+  template: string;
+  creation_date: string;
+}
+
+export interface AccountBan {
+  ban_id: number;
+  account_id: number;
+  issuer_id: number;
+  galaxy_id: number;
+  name: string;
+  created: string;
+  expires: number;
+  reason: string;
+}
+
+export interface AccountDetail {
+  account: Account;
+  characters: Character[];
+  bans: AccountBan[];
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// REST API response types
+
+export interface CharacterSearchResult {
+  metadata: {
+    objectCount: number;
+    msSearch: number;
+    msExport: number;
+    offset: number;
+    limit: number;
+    total: number;
+  };
+  names: Record<string, number>;
+  objects?: Record<string, ObjectData>;
+}
+
+export interface ObjectData {
+  _oid: number;
+  _className: string;
+  _depth: number;
+  _oidPath: number[];
+  [key: string]: unknown;
+}
+
+export interface ObjectLookupResult {
+  metadata: {
+    exportTime: string;
+    objectCount: number;
+    maxDepth: number;
+    recursive: boolean;
+  };
+  objects: Record<string, ObjectData>;
+}
+
+export interface ConfigResult {
+  metadata: { exportTime: string };
+  result: Record<string, unknown>;
+}
+
+export interface ActionResult {
+  status: string;
+  status_code: number;
+  [key: string]: unknown;
+}
+
+export type TabId = 'dashboard' | 'players' | 'chat' | 'config' | 'console';

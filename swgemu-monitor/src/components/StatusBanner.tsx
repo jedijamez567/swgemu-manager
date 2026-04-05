@@ -4,6 +4,7 @@ interface StatusBannerProps {
   lastFetchTime: Date | null;
   refreshInterval: number;
   onRefreshChange: (seconds: number) => void;
+  galaxyName?: string;
 }
 
 export function StatusBanner({
@@ -12,11 +13,12 @@ export function StatusBanner({
   lastFetchTime,
   refreshInterval,
   onRefreshChange,
+  galaxyName,
 }: StatusBannerProps) {
   return (
     <header className="status-banner">
       <div className="status-banner-left">
-        <h1>SWGEmu Server Monitor</h1>
+        <h1>SWGEmu Server Monitor{galaxyName ? ` — ${galaxyName}` : ''}</h1>
         <span className={`status-dot ${isConnected ? 'connected' : 'disconnected'}`} />
         <span className="status-text">{isConnected ? 'Connected' : 'Disconnected'}</span>
       </div>
