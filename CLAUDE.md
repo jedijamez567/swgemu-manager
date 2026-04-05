@@ -14,7 +14,7 @@ SWGEmu Manager is a Docker-based system for running a customized Star Wars Galax
 
 **Core design pattern**: All Lua customizations in the repo root are volume-mounted over Core3 defaults at container startup. Restart the container to pick up changes — no recompile needed unless Core3 C++ source changes.
 
-**Core3 submodule** (`Core3/`): Custom fork at `jedijamez567/Core3`. Upstream is `swgemu/Core3`. Submodule changes require a full rebuild (`docker-compose down && docker-compose up -d --build`).
+**Core3 submodule** (`Core3/`): Custom fork at `jedijamez567/Core3` on the `custom` branch. Upstream remote `swgemu/Core3` is configured for fetching updates (`git fetch upstream && git merge upstream/unstable`). Submodule changes require a full rebuild (`docker-compose down && docker-compose up -d --build`).
 
 ## Build & Run Commands
 
@@ -61,6 +61,7 @@ All Lua files mount over Core3 defaults in the container. Key files:
 
 ## Utility Tools
 
+- **Server Monitor** (`swgemu-monitor/`): React/Vite dashboard for real-time server monitoring via the Core3 REST API. Run with `cd swgemu-monitor && npm install && npm run dev` (opens at `http://localhost:5173`). Displays online players, AI agents, mission stats, and server uptime. The Vite proxy forwards `/api` requests to `https://localhost:44443` with browser headers stripped (required for compatibility with the old cpprest SDK on Ubuntu 16.04).
 - **Loot Generator** (`Loot Generator/`): Streamlit app for generating admin loot commands. Run with `streamlit run app.py`.
 - **API Client** (`swgemu_api_client.py`): Streamlit-based REST API browser.
 - **Loot Parser** (`Loot Generator/parse_loot_groups.py`): Parses Core3 loot group Lua files into `loot_database.json`.
@@ -117,3 +118,4 @@ The swgemu-manager repo mounts customized Lua files over Core3's `bin/scripts/` 
 - `resource_manager_spawns.lua` is extremely large — avoid reading the entire file
 - Lua command files follow the pattern: `CommandName = { name = "commandname" }; AddCommand(CommandName)`
 - The Jedi system is configured in `conf/features.lua` via `jediSystem` (options: hologrind, village, custom)
+- The Core3 REST API uses an old cpprest SDK (Ubuntu 16.04, ~v2.8). HTTP proxies must strip modern browser headers or the SDK's low-level parser rejects requests with 400 before application code runs. The Vite proxy in `swgemu-monitor/vite.config.ts` handles this.

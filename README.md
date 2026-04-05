@@ -47,22 +47,42 @@ All gameplay customizations live in the root directory. At container startup, `d
 
 ## Core3 Submodule Workflow
 
-The `Core3` submodule points to a [personal fork](https://github.com/jedijamez567/Core3) on the `custom` branch. This branch contains modifications that allow Core3 to read configs from the root directory. The official repo (`swgemu/Core3`) is kept as the `origin` remote so upstream changes can be merged in.
+The `Core3` submodule points to a [personal fork](https://github.com/jedijamez567/Core3) on the `custom` branch. This branch contains modifications that allow Core3 to read configs from the root directory. The official repo (`swgemu/Core3`) is added as the `upstream` remote so upstream changes can be merged in.
+
+**Cloning on a new host:**
+```bash
+git clone --recurse-submodules https://github.com/jedijamez567/swgemu-manager.git
+cd swgemu-manager/Core3
+git checkout custom
+git remote add upstream https://github.com/swgemu/Core3.git
+```
 
 **Pulling upstream updates:**
 ```bash
 cd Core3
-git fetch origin
-git merge origin/unstable
-git push myfork custom
+git fetch upstream
+git merge upstream/unstable
+git push origin custom
 cd ..
 git add Core3
-git commit -m "update Core3 from upstream"
+git commit -m "Update Core3 from upstream"
 ```
 
 **Remotes inside `Core3/`:**
-- `origin` — official `swgemu/Core3` (read-only, for fetching updates)
-- `myfork` — `jedijamez567/Core3` (your fork, where `custom` branch lives)
+- `origin` — `jedijamez567/Core3` (your fork, where `custom` branch lives)
+- `upstream` — official `swgemu/Core3` (read-only, for fetching updates)
+
+## Server Monitor
+
+The `swgemu-monitor/` directory contains a React dashboard for real-time server monitoring via the Core3 REST API.
+
+```bash
+cd swgemu-monitor
+npm install
+npm run dev
+```
+
+Opens at `http://localhost:5173`. Displays online players, AI agent counts, mission stats, server uptime, and more. Requires the server to be running with the REST API enabled (port 44443).
 
 ## Server Management
 
