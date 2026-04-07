@@ -1,6 +1,9 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import mysql from 'mysql2/promise'
+import { readFile } from 'fs/promises'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import type { IncomingMessage, ServerResponse } from 'http'
 
 function swgemuDbPlugin(): Plugin {
@@ -138,6 +141,16 @@ function swgemuDbPlugin(): Plugin {
             await handleAccounts(url, res);
           } else if (path === '/db/characters' && req.method === 'GET') {
             await handleCharacterSearch(url, res);
+          } else if (path === '/db/skills' && req.method === 'GET') {
+            const [rows] = await pool.query(
+              'SELECT skill_name as name, skill_parent as parent FROM skills ORDER BY skill_name'
+            );
+            json(res, 200, rows);
+          } else if (path === '/db/loot' && req.method === 'GET') {
+            const __dirname = dirname(fileURLToPath(import.meta.url));
+            const lootPath = resolve(__dirname, '..', 'Loot Generator', 'loot_database.json');
+            const data = await readFile(lootPath, 'utf-8');
+            json(res, 200, JSON.parse(data));
           } else {
             // Check for /db/accounts/:id pattern
             const accountMatch = path.match(/^\/db\/accounts\/(\d+)$/);

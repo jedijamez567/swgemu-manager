@@ -875,3 +875,35 @@ section {
   color: var(--accent);
   font-weight: 500;
 }
+
+/* Loot Generator */
+
+.command-preview {
+  display: block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 13px;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.loot-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 0.25rem;
+  font-size: 13px;
+}
+
+.loot-badge {
+  background: var(--accent);
+  color: var(--bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}

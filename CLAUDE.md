@@ -46,6 +46,7 @@ All Lua files mount over Core3 defaults in the container. Key files:
 | `conf/features.lua` | Feature toggles (jedi system, armor, GCW) |
 | `player_manager/player_manager.lua` | Player settings (XP multipliers, buffs, PvP, account limits, vehicle call delay) |
 | `player_creation_manager/player_creation_manager.lua` | New character setup (starting items, species, professions, creation cooldown) |
+| `mission_manager/mission_manager.lua` | Mission settings (max active missions, bounty targets, destroy rewards, factional toggles) |
 | `loot_manager/loot_manager.lua` | Loot drop system (chances, rarity tiers, armor stat mods) |
 | `resource_manager/resource_manager_spawns.lua` | Resource spawn data (~370K lines) |
 | `jedi/` | Jedi unlock system — `hologrind_jedi_manager.lua` is primary |
@@ -137,6 +138,64 @@ The volume-mounted Lua override takes precedence over the Core3 default, so Lua-
 ### Volume Mount Overlay
 
 The swgemu-manager repo mounts customized Lua files over Core3's `bin/scripts/` and `bin/conf/` defaults at container runtime. This is why Lua changes only need a container restart. The mount order in docker-compose matters — specific file mounts override directory mounts.
+
+## Admin Commands
+
+Admin commands are gated by the **admin skill system**, not just the account's `admin_level` in the database. The SWG client only shows commands that are either in the client's base command table (TRE files) or granted via skills on the character.
+
+### How Admin Permissions Work
+
+1. **Account level**: Set in `accounts.admin_level` (MySQL). Admin = 15, set in `sql/02-admin_account.sql`.
+2. **Permission levels**: Defined in `Core3/MMOCoreORB/bin/scripts/staff/levels/` (e.g., `admin.lua` maps level 15 to a list of ~20 admin skills).
+3. **Admin skills**: Defined in `Core3/MMOCoreORB/bin/scripts/skills/staff/`. Each skill grants specific commands:
+   - `admin_base` → "admin" command (enables `/setgodmode`)
+   - `admin_general_admin_01` → teleport, teleportto, invulnerable, kill, setSpeed
+   - `admin_general_admin_03` → object, searchCorpse
+   - `admin_player_management_01` → findPlayer, gmRevive, setFaction, etc.
+   - `admin_player_management_03` → credits, grantSkill, setExperience, money, etc.
+4. **Skill granting**: Admin skills are granted in C++ via `PlayerManager::updatePermissionLevel()`, called only during character creation (`PlayerCreationManager.cpp`) or via `/setgodmode <name> <level>` (`SetGodModeCommand.h`).
+
+### Troubleshooting "Command Not Found"
+
+If admin commands show "command not found" in-game, the character is missing admin skills. This happens when the character was created before the admin account was configured, or after an ODB reset.
+
+**Fix**: Run `/setgodmode self admin` in-game. This re-grants all admin skills for the admin permission level. You should see "Staff skill granted: ..." messages for each skill.
+
+**Important**: `/setgodmode self on` only toggles the admin ability — it does NOT re-grant all admin skills. Use `/setgodmode self admin` for the full skill set.
+
+### Admin Command Reference
+
+Full list: https://app.assembla.com/wiki/show/swgemu/Admin_Command_Reference
+
+Common commands: `/teleport`, `/object createitem`, `/credits`, `/grantSkill`, `/gmRevive`, `/findPlayer`, `/invulnerable`, `/kick`, `/freezePlayer`
+
+## Hologrind Jedi System
+
+The server uses the **hologrind** Jedi progression path (configured in `conf/features.lua`). Only 1 profession must be mastered (from: Brawler, Marksman, Unarmed).
+
+### Progression Flow
+
+1. **Master profession** → `checkIfProgressedToJedi()` awards `force_title_jedi_novice`, sets `jediState=1`, creates waypoint to nearest Force Shrine
+2. **Meditate at Force Shrine** (must crouch) → `awardJediStatusAndSkill()` awards Padawan rank (`force_title_jedi_rank_02`), all `force_sensitive_*` skills, sets `jediState=2`, gives Jedi Starter Kit (crafting tool, padawan robe, crystal packs, resource deeds, color crystal)
+3. **Reach 5,000 faction points** (Rebel or Imperial) + **meditate again** → `promoteToKnight()` awards Knight rank (`force_title_jedi_rank_03`), sets `jediState=4`, gives knight robe + Legendary Krayt Dragon Pearl + lightsaber crafting materials
+
+### jediState and Skill Visibility
+
+Jedi skill visibility is gated by `jediState` in `SkillManager.cpp` — each skill has a `jediStateRequired` property:
+
+| jediState | Meaning | Skills Visible |
+|-----------|---------|---------------|
+| 0 | Not Force Sensitive | None |
+| 1 | Awaiting meditation | None (has `force_title_jedi_novice` for shrine interaction only) |
+| 2 | Padawan | `force_sensitive_*` (passive enhancements) |
+| 4 | Jedi Knight (Light) | `force_sensitive_*` + `force_discipline_*` (lightsaber, Force powers, healing) |
+| 8 | Jedi Knight (Dark) | Same as 4 |
+
+### Lua Item Granting
+
+- **`giveItem(pInventory, templatePath, -1)`** — creates an object from an IFF template directly. Works for equipment, components, deeds.
+- **`createLoot(pInventory, lootGroupName, level)`** — creates an item through the loot system, which applies crafting values (e.g., color attributes on crystals). Use this for items that need loot-system properties.
+- **No Lua API for filled resource containers** — `givePlayerResource()` exists in C++ (`ResourceManagerImplementation.cpp`) but is not exposed to Lua. Use Resource Deeds (`object/tangible/veteran_reward/resource.iff`) instead; each gives 30,000 units of a player-selected resource.
 
 ## Important Notes
 

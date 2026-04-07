@@ -428,7 +428,12 @@ function HologrindJediManager:promoteToKnight(pCreatureObject)
 	
 	-- Give Legendary Krayt Dragon Pearl
 	self:giveLegendaryKraytPearl(pCreatureObject)
-	
+
+	-- Give lightsaber crafting materials
+	if (pInventory ~= nil) then
+		self:giveLightsaberCraftingMaterials(pInventory)
+	end
+
 	-- Effects and messages
 	CreatureObject(pCreatureObject):playMusicMessage(unlockMusic)
 	playClientEffectLoc(pCreatureObject, "clienteffect/trap_electric_01.cef", 
@@ -561,13 +566,33 @@ function HologrindJediManager:giveJediStarterKit(pCreatureObject)
 	
 	-- Give Jedi Crafting Tool
 	local pItem = giveItem(pInventory, "object/tangible/crafting/station/jedi_tool.iff", -1)
-	
+
 	-- Give Padawan Robe
 	if (pItem ~= nil) then
 		pItem = giveItem(pInventory, "object/tangible/wearables/robe/robe_jedi_padawan.iff", -1)
 	end
-	
-	CreatureObject(pCreatureObject):sendSystemMessage("You have received a Jedi Starter Kit!")
+
+	-- Give lightsaber crafting materials
+	self:giveLightsaberCraftingMaterials(pInventory)
+
+	CreatureObject(pCreatureObject):sendSystemMessage("You have received a Jedi Starter Kit! Use the Resource Deeds to select Metal, Mineral, Chemical, and Gas resources for crafting your training lightsaber.")
+end
+
+-- Give lightsaber crafting materials (2x Refined Crystal Packs + 4x Resource Deeds).
+-- @param pInventory pointer to the player's inventory container.
+function HologrindJediManager:giveLightsaberCraftingMaterials(pInventory)
+	-- 2x Refined Crystal Packs
+	giveItem(pInventory, "object/tangible/component/weapon/lightsaber/lightsaber_refined_crystal_pack.iff", -1)
+	giveItem(pInventory, "object/tangible/component/weapon/lightsaber/lightsaber_refined_crystal_pack.iff", -1)
+
+	-- 4x Resource Deeds (for Metal, Mineral, Chemical, Gas)
+	giveItem(pInventory, "object/tangible/veteran_reward/resource.iff", -1)
+	giveItem(pInventory, "object/tangible/veteran_reward/resource.iff", -1)
+	giveItem(pInventory, "object/tangible/veteran_reward/resource.iff", -1)
+	giveItem(pInventory, "object/tangible/veteran_reward/resource.iff", -1)
+
+	-- Color crystal (via loot system to properly set color attributes)
+	createLoot(pInventory, "color_crystals", 0)
 end
 
 registerScreenPlay("HologrindJediManager", true)

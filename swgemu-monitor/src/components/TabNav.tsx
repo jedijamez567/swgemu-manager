@@ -6,6 +6,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'chat', label: 'Chat' },
   { id: 'config', label: 'Config' },
   { id: 'console', label: 'Console' },
+  { id: 'lootgen', label: 'Admin Commands' },
 ];
 
 interface TabNavProps {

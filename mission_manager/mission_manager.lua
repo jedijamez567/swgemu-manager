@@ -92,3 +92,7 @@ destroyMissionBaseReward = 10000
 destroyMissionDifficultyRewardFactor = 375
 destroyMissionRandomReward = 10000
 destroyMissionDifficultyRandomReward = 15
+
+-- Maximum number of missions a player can have active at one time (default: 2)
+-- Note: Only one active mission can be a bounty mission, regardless of this limit
+maximumMissions = 2

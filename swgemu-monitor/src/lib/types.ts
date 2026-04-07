@@ -193,4 +193,23 @@ export interface ActionResult {
   [key: string]: unknown;
 }
 
-export type TabId = 'dashboard' | 'players' | 'chat' | 'config' | 'console';
+export type TabId = 'dashboard' | 'players' | 'chat' | 'config' | 'console' | 'lootgen';
+
+// Loot Generator types
+
+export interface LootItem {
+  template: string;
+  weight: number;
+}
+
+export interface LootGroup {
+  name: string;
+  description: string;
+  minimumLevel: number;
+  maximumLevel: number;
+  items: LootItem[];
+  category: string;
+  file: string;
+}
+
+export type LootDatabase = Record<string, LootGroup>;

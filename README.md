@@ -88,4 +88,18 @@ Opens at `http://localhost:5173`. Displays online players, AI agent counts, miss
 
 - **MySQL:** Connect to `localhost:3306` (root password in `docker-compose.yml`)
 - **REST API:** See [REST_API_SETUP.md](REST_API_SETUP.md)
-- **Admin commands:** Full list at [SWGAdmin Commands](https://drive.google.com/file/d/0BwjBDOFpOsM5OEVuMDh1U3BDYnM/view)
+- **Admin commands:** Full list at [SWGEmu Admin Command Reference](https://app.assembla.com/wiki/show/swgemu/Admin_Command_Reference)
+
+### Admin Command Setup
+
+Admin commands (e.g., `/teleport`, `/object`, `/credits`, `/grantSkill`) require admin skills to be granted to your character. These skills are automatically assigned during character creation if the account has `admin_level = 15`, but may be missing if the character was created before the admin account was set up.
+
+If admin commands show **"command not found"** in-game, run:
+
+```
+/setgodmode self admin
+```
+
+This re-grants all ~20 admin skills. You should see confirmation messages for each skill. After that, all admin commands will be available immediately.
+
+> **Note:** `/setgodmode self on` only toggles the admin ability — use `/setgodmode self admin` to get the full command set.

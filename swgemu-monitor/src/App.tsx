@@ -12,6 +12,7 @@ import { PlayersPage } from './components/pages/PlayersPage';
 import { ChatPage } from './components/pages/ChatPage';
 import { ConfigPage } from './components/pages/ConfigPage';
 import { ConsolePage } from './components/pages/ConsolePage';
+import { AdminCommandsPage } from './components/pages/AdminCommandsPage';
 import type { TabId } from './lib/types';
 
 const DEFAULT_TOKEN = 'swgemu_secure_api_token_12345';
@@ -84,6 +85,7 @@ function App() {
         {activeTab === 'chat' && <ChatPage token={token} />}
         {activeTab === 'config' && <ConfigPage token={token} />}
         {activeTab === 'console' && <ConsolePage token={token} />}
+        {activeTab === 'lootgen' && <AdminCommandsPage token={token} />}
       </main>
     </div>
   );
