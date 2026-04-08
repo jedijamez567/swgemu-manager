@@ -89,7 +89,7 @@ Core3 = {
 	-- Galaxy Configuration
 	ZoneGalaxyID = 2, --The actual zone server's galaxyID. Should coordinate with your login server.
 	ZoneGalaxyName = "Chevelle", --Name of the galaxy as it appears in the server list
-	ZoneGalaxyAddress = "jedijamez.local", --Address/hostname for the galaxy
+	ZoneGalaxyAddress = "localhost", --Address/hostname for the galaxy
 	ZoneGalaxyPort = 44463, --Main port for the galaxy
 	ZoneGalaxyPingPort = 44462, --Ping port for the galaxy
 
@@ -150,6 +150,7 @@ Core3 = {
 
 	-- Each tre file (order is important!)
 	TreFiles = {
+		"dakota_jedi_profession.tre",
 		"dakotatest2.tre",
 		"default_patch.tre",
 		"patch_sku1_14_00.tre",

@@ -70,7 +70,7 @@ enable_factional_recon_missions = "true"
 
 enable_factional_entertainer_missions = "true"
 
-enable_same_account_bounty_missions = "false"
+enable_same_account_bounty_missions = "true"
 
 playerBountyKillBuffer = 30 * 60 * 1000 -- Buffer before player bounty can be put back on terminal after target is killed, set 0 to disable
 
@@ -80,19 +80,19 @@ playerBountyDebuffLength = 3 * 24 * 60 * 60 * 1000 -- Time before their bounty r
 -- Distance calculated as: 
 --    <BaseDistance> + <DifficultyDistanceFactor> * <difficultyLevel> + 
 --    rand(<RandomDistance>) + rand(<DifficutlyRandomDistance * <difficultyLevel>)
-destroyMissionBaseDistance = 800
+destroyMissionBaseDistance = 500
 destroyMissionDifficultyDistanceFactor = 0
-destroyMissionRandomDistance = 800
+destroyMissionRandomDistance = 500
 destroyMissionDifficultyRandomDistance = 0
 
 -- Mission payout calculated as: 
 --    <BaseReward> + <DifficultyRewardFactor> * <difficultyLevel> + 
 --    rand(<RandomReward>) + rand(<DifficutlyRandomReward * <difficultyLevel>)
-destroyMissionBaseReward = 10000
+destroyMissionBaseReward = 20000
 destroyMissionDifficultyRewardFactor = 375
-destroyMissionRandomReward = 10000
+destroyMissionRandomReward = 20000
 destroyMissionDifficultyRandomReward = 15
 
 -- Maximum number of missions a player can have active at one time (default: 2)
 -- Note: Only one active mission can be a bounty mission, regardless of this limit
-maximumMissions = 2
+maximumMissions = 10

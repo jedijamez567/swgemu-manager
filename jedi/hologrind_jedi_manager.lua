@@ -70,6 +70,12 @@ end
 -- Hologrind professions will be generated for the player.
 -- @param pCreatureObject pointer to the creature object of the created player.
 function HologrindJediManager:onPlayerCreated(pCreatureObject)
+	-- If player started as Jedi profession, fast-track to Padawan (skip hologrind)
+	if CreatureObject(pCreatureObject):hasSkill("force_title_jedi_novice") then
+		self:awardJediStatusAndSkill(pCreatureObject)
+		return
+	end
+
 	local skillList = self:getGrindableProfessionList()
 
 	local pGhost = CreatureObject(pCreatureObject):getPlayerObject()
