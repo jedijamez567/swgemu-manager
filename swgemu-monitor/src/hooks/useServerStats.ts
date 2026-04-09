@@ -10,6 +10,8 @@ interface UseServerStatsReturn {
   lastFetchTime: Date | null;
 }
 
+const MAX_BACKOFF_SECONDS = 60;
+
 export function useServerStats(
   token: string,
   intervalSeconds: number,
@@ -20,7 +22,8 @@ export function useServerStats(
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
-  const intervalRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+  const failuresRef = useRef(0);
 
   const doFetch = useCallback(async () => {
     if (!token) return;
@@ -34,21 +37,35 @@ export function useServerStats(
       setIsConnected(true);
       setError(null);
       setLastFetchTime(new Date());
+      failuresRef.current = 0;
     } catch (err) {
       setIsConnected(false);
       setError(err instanceof Error ? err.message : 'Unknown error');
+      failuresRef.current += 1;
     }
   }, [token]);
 
   useEffect(() => {
     if (!enabled || !token) return;
 
-    doFetch();
-    intervalRef.current = window.setInterval(doFetch, intervalSeconds * 1000);
+    let cancelled = false;
+
+    async function poll() {
+      await doFetch();
+      if (cancelled) return;
+      const backoff = Math.min(
+        intervalSeconds * Math.pow(2, failuresRef.current),
+        MAX_BACKOFF_SECONDS
+      );
+      timeoutRef.current = window.setTimeout(poll, backoff * 1000);
+    }
+
+    poll();
 
     return () => {
-      if (intervalRef.current !== null) {
-        clearInterval(intervalRef.current);
+      cancelled = true;
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
       }
     };
   }, [doFetch, intervalSeconds, enabled, token]);

@@ -139,6 +139,47 @@ The volume-mounted Lua override takes precedence over the Core3 default, so Lua-
 
 The swgemu-manager repo mounts customized Lua files over Core3's `bin/scripts/` and `bin/conf/` defaults at container runtime. This is why Lua changes only need a container restart. The mount order in docker-compose matters — specific file mounts override directory mounts.
 
+## TRE File System
+
+TRE (Tree) archives contain client-side binary data: IFF datatables, STF string tables, UI definitions, templates, and more. Both the server and client read TRE files independently.
+
+### Load Order & Precedence
+
+TRE files are listed in `conf/config.lua` (`TreFiles` array) for the server and `swgemu_live.cfg` for the client. **First-loaded TRE wins** — when multiple TRE files contain the same file path, the one listed earliest in the array takes precedence. Later TREs with duplicate paths are silently rejected (`TreeDirectory` uses a `SortedVector` with `NO_DUPLICATE` insert plan).
+
+```lua
+TreFiles = {
+    "dakota_jedi_profession.tre",  -- position 0 = HIGHEST priority
+    "dakotatest2.tre",
+    ...
+    "bottom.tre"                   -- LOWEST priority
+}
+```
+
+### TRE vs Database
+
+The server reads skill definitions, profession defaults, and other datatable IFF files **exclusively from TRE archives** at startup — never from the database. Key loading paths:
+
+- **SkillManager** (`loadClientData()`): Opens `datatables/skill/skills.iff` from TRE via `TemplateManager::instance()->openIffFile()`
+- **PlayerCreationManager** (`loadProfessionDefaultsInfo()`): Reads `creation/profession_defaults.iff` and per-profession PRFI files from TRE
+- **`Core3/MMOCoreORB/sql/datatables.sql`**: Contains `skill_skills` table but is a **reference artifact only** — not loaded at runtime, not in the Docker init directory
+
+### Data Flow
+
+`DataArchiveStore::getData()` checks two sources in order:
+1. **Local filesystem** (highest priority) — if a file exists locally, it's returned immediately
+2. **TRE archives** — falls back to `TreeArchive` using the first-loaded-wins precedence
+
+### Editing TRE Contents
+
+Use **SIE (SWG Information Editor)** from modthegalaxy.com to edit IFF/STF files inside TRE archives. Common editable formats:
+- **IFF datatables** (`skills.iff`, `profession_mods.iff`): Skill definitions, profession attributes
+- **PRFI files** (`profession_defaults_*.iff`): Starting skill (SKIL chunk) and per-race equipment (PTMP sections)
+- **PFDT files** (`profession_defaults.iff`): Maps profession keys to PRFI file paths
+- **STF string tables** (`skl_n.stf`, `skl_d.stf`, `skl_t.stf`): Skill names, descriptions, titles
+
+After editing, rebuild the patch TRE and place it in both the server's `TrePath` directory and the client's TRE directory. Server requires a container restart; client requires a restart.
+
 ## Admin Commands
 
 Admin commands are gated by the **admin skill system**, not just the account's `admin_level` in the database. The SWG client only shows commands that are either in the client's base command table (TRE files) or granted via skills on the character.
@@ -199,7 +240,7 @@ Jedi skill visibility is gated by `jediState` in `SkillManager.cpp` — each ski
 
 ## Important Notes
 
-- TRE files must be manually placed in `./tre/` (not version controlled, ~2+ GB)
+- TRE files must be manually placed in the server's `TrePath` directory (not version controlled, ~2+ GB). See "TRE File System" section for precedence rules
 - `resource_manager_spawns.lua` is extremely large — avoid reading the entire file
 - Lua command files follow the pattern: `CommandName = { name = "commandname" }; AddCommand(CommandName)`
 - The Jedi system is configured in `conf/features.lua` via `jediSystem` (options: hologrind, village, custom)

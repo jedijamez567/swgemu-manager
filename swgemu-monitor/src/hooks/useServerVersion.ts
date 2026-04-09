@@ -7,6 +7,9 @@ interface UseServerVersionReturn {
   error: string | null;
 }
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 5000;
+
 export function useServerVersion(token: string): UseServerVersionReturn {
   const [version, setVersion] = useState<VersionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -15,19 +18,29 @@ export function useServerVersion(token: string): UseServerVersionReturn {
     if (!token) return;
 
     let cancelled = false;
+    let attempt = 0;
 
-    fetchVersion(token)
-      .then((data) => {
-        if (!cancelled) {
-          setVersion(data);
-          setError(null);
+    async function tryFetch() {
+      while (attempt < MAX_RETRIES && !cancelled) {
+        try {
+          const data = await fetchVersion(token);
+          if (!cancelled) {
+            setVersion(data);
+            setError(null);
+          }
+          return;
+        } catch (err) {
+          attempt++;
+          if (!cancelled && attempt >= MAX_RETRIES) {
+            setError(err instanceof Error ? err.message : 'Unknown error');
+          } else if (!cancelled) {
+            await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          }
         }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Unknown error');
-        }
-      });
+      }
+    }
+
+    tryFetch();
 
     return () => {
       cancelled = true;

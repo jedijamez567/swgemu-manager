@@ -116,13 +116,15 @@ function swgemuDbPlugin(): Plugin {
     name: 'swgemu-db',
     configureServer(server) {
       pool = mysql.createPool({
-        host: 'localhost',
+        host: '127.0.0.1',
         port: 3306,
         user: 'swgemu',
         password: 'swgemu-sql',
         database: 'swgemu',
         waitForConnections: true,
         connectionLimit: 5,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 10000,
       });
 
       server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
@@ -178,7 +180,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://localhost:44443',
+        target: 'https://127.0.0.1:44443',
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
         configure: (proxy) => {
@@ -200,10 +202,15 @@ export default defineConfig({
             if (contentLength) proxyReq.setHeader('content-length', contentLength);
           });
           proxy.on('error', (err, _req, res) => {
-            console.error('[api-proxy] error:', err.message);
+            const msg = err.message;
+            if (msg.includes('ECONNRESET') || msg.includes('ECONNREFUSED')) {
+              console.warn('[api-proxy] server unreachable:', msg);
+            } else {
+              console.error('[api-proxy] error:', msg);
+            }
             if ('writeHead' in res && !res.headersSent) {
               (res as import('http').ServerResponse).writeHead(502);
-              (res as import('http').ServerResponse).end('Proxy error: ' + err.message);
+              (res as import('http').ServerResponse).end('Proxy error: ' + msg);
             }
           });
         },
