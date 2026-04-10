@@ -180,6 +180,39 @@ Use **SIE (SWG Information Editor)** from modthegalaxy.com to edit IFF/STF files
 
 After editing, rebuild the patch TRE and place it in both the server's `TrePath` directory and the client's TRE directory. Server requires a container restart; client requires a restart.
 
+## Client Binary Patching
+
+Some client behavior is hardcoded in `SWGEmu.exe` and cannot be changed via TRE files or server config. When that happens, the client binary must be patched directly. A patched copy lives at `modified_assets/SWGEmu.exe` (not volume-mounted — copied manually into the client install directory).
+
+### Jedi Profession Filter Removal
+
+The client's `SwgCuiAvatarSetupProf::performActivate()` hardcodes a filter that strips "jedi" from the character creation profession dropdown, even when the server PFDT (`creation/profession_defaults.iff`) includes a Jedi entry. From the SWG-Source client source:
+
+```cpp
+if (professionName == "jedi") {
+    --index;
+    continue;
+}
+```
+
+The filter references a single null-terminated `"jedi\0"` string literal in the binary's `.rdata` section. There is exactly one standalone occurrence — all other "jedi" strings in the binary are substrings of longer identifiers (`jediTrainer`, `server_dialog_create_jedi`, `/styles.icon.jedi.*`).
+
+**Patch details:**
+- File: `SWGEmu.exe` (22,061,142 bytes, 32-bit x86 PE)
+- Offset: `0x014A57D8` (decimal 21,649,368)
+- Original bytes: `6A 65 64 69` ("jedi")
+- Patched bytes: `78 78 78 78` ("xxxx")
+
+After patching, the filter compares profession names against "xxxx", which never matches, so Jedi passes through and appears in the dropdown. This is a data-only patch — no code is modified and the file size is unchanged.
+
+**Applying the patch to a fresh client:**
+1. Back up the original: `cp SWGEmu.exe SWGEmu.exe.bak`
+2. Verify bytes at `0x014A57D8` are `6A 65 64 69 00` ("jedi\0")
+3. Overwrite 4 bytes at that offset with `78 78 78 78`
+4. Preserve the null terminator at offset+4
+
+Server-side requirements for Jedi to actually work once it appears in the dropdown: `allowJediStartingProfession = 1` in `player_creation_manager.lua`, plus a modified TRE containing `creation/profession_defaults.iff` (PFDT with Jedi entry), `creation/profession_defaults_jedi.iff` (PRFI), and `datatables/creation/profession_mods.iff` (Jedi attribute row).
+
 ## Admin Commands
 
 Admin commands are gated by the **admin skill system**, not just the account's `admin_level` in the database. The SWG client only shows commands that are either in the client's base command table (TRE files) or granted via skills on the character.

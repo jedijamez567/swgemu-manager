@@ -84,6 +84,22 @@ npm run dev
 
 Opens at `http://localhost:5173`. Displays online players, AI agent counts, mission stats, server uptime, and more. Requires the server to be running with the REST API enabled (port 44443).
 
+## Modified Client Assets
+
+The `modified_assets/` directory contains patched copies of client files used to unlock behavior that is hardcoded in the stock SWG client and cannot be overridden via TRE files or server config.
+
+| File | Purpose |
+|---|---|
+| `SWGEmu.exe` | Patched client with the hardcoded Jedi filter removed (see below) |
+
+These are **not** volume-mounted — they must be copied manually into the SWG client install directory (typically `C:\SWGEmu\SWGEmu\`). Always back up the original before replacing.
+
+### Jedi Profession Filter Patch
+
+The stock client's `SwgCuiAvatarSetupProf` strips "jedi" from the character creation profession dropdown even when the server's PFDT includes it. The patch neutralizes the filter by overwriting the comparison string at offset `0x014A57D8` from `"jedi"` (`6A 65 64 69`) to `"xxxx"` (`78 78 78 78`), so the filter never matches. File size is unchanged; only 4 bytes differ from the original.
+
+See [CLAUDE.md](CLAUDE.md#client-binary-patching) for the full technical details and server-side requirements.
+
 ## Server Management
 
 - **MySQL:** Connect to `localhost:3306` (root password in `docker-compose.yml`)
