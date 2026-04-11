@@ -60,6 +60,12 @@ databases/*
 navmeshes/*
 !navmeshes/.gitkeep
 
+# Patched client binaries are large, copyrighted artifacts produced by
+# scripts/build_custom_client.py - never commit them
+modified_assets/*.exe
+modified_assets/*.exe.bak
+modified_assets/*.tre
+
 # this is ignored because it will be changed by the server
 resource_manager/resource_manager_spawns.lua
 

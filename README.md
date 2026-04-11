@@ -84,21 +84,56 @@ npm run dev
 
 Opens at `http://localhost:5173`. Displays online players, AI agent counts, mission stats, server uptime, and more. Requires the server to be running with the REST API enabled (port 44443).
 
-## Modified Client Assets
+## Building a Custom Client
 
-The `modified_assets/` directory contains patched copies of client files used to unlock behavior that is hardcoded in the stock SWG client and cannot be overridden via TRE files or server config.
+The `modified_assets/` directory is a staging location for patched copies of
+client files used to unlock behavior that is hardcoded in the stock SWG
+client (and therefore cannot be overridden via TRE files or server config).
 
-| File | Purpose |
-|---|---|
-| `SWGEmu.exe` | Patched client with the hardcoded Jedi filter removed (see below) |
+Patched binaries are **not** committed to this repository — they are
+produced on demand by the build script `scripts/build_custom_client.py`,
+which applies the documented `SWGEmu.exe` Jedi profession filter patch and
+(optionally) stages custom TRE files and updates the client's
+`swgemu_live.cfg`.
 
-These are **not** volume-mounted — they must be copied manually into the SWG client install directory (typically `C:\SWGEmu\SWGEmu\`). Always back up the original before replacing.
+```bash
+# Patch a stock client into a fresh output directory
+python3 scripts/build_custom_client.py build \
+    --source /path/to/stock/SWGEmu \
+    --dest   ./modified_assets \
+    --tre-source /path/to/custom/tres   # optional
+
+# ...or patch an existing client install in place
+python3 scripts/build_custom_client.py build \
+    --source /path/to/SWGEmu \
+    --in-place
+
+# Check whether a client has already been patched
+python3 scripts/build_custom_client.py verify --source /path/to/SWGEmu
+
+# Run the built-in patcher tests (no real client needed)
+python3 scripts/build_custom_client.py self-test
+```
+
+The build script is idempotent — re-running it against an already-patched
+client is a no-op — and always creates a `SWGEmu.exe.bak` backup before
+modifying anything, unless `--no-backup` is passed. Pass `--dry-run` to
+preview what the build would do without touching any files.
+
+After building, copy the contents of `modified_assets/` into the SWG client
+install directory on each player's machine (typically `C:\SWGEmu\SWGEmu\`).
 
 ### Jedi Profession Filter Patch
 
-The stock client's `SwgCuiAvatarSetupProf` strips "jedi" from the character creation profession dropdown even when the server's PFDT includes it. The patch neutralizes the filter by overwriting the comparison string at offset `0x014A57D8` from `"jedi"` (`6A 65 64 69`) to `"xxxx"` (`78 78 78 78`), so the filter never matches. File size is unchanged; only 4 bytes differ from the original.
+The stock client's `SwgCuiAvatarSetupProf` strips "jedi" from the character
+creation profession dropdown even when the server's PFDT includes it. The
+patch neutralizes the filter by overwriting the comparison string at offset
+`0x014A57D8` from `"jedi"` (`6A 65 64 69`) to `"xxxx"`
+(`78 78 78 78`), so the filter never matches. File size is unchanged; only
+4 bytes differ from the original.
 
-See [CLAUDE.md](CLAUDE.md#client-binary-patching) for the full technical details and server-side requirements.
+See [CLAUDE.md](CLAUDE.md#client-binary-patching) for the full technical
+details and server-side requirements.
 
 ## Server Management
 
