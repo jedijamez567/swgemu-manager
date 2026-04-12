@@ -44,7 +44,7 @@ All Lua files mount over Core3 defaults in the container. Key files:
 | `conf/config.lua` | Main server config (database, network, galaxy, zones, TRE files) |
 | `conf/config-local.lua` | Local overrides (REST API settings, galaxy-wide grouping) |
 | `conf/features.lua` | Feature toggles (jedi system, armor, GCW) |
-| `player_manager/player_manager.lua` | Player settings (XP multipliers, buffs, PvP, account limits, vehicle call delay) |
+| `player_manager/player_manager.lua` | Player settings (XP multipliers, Jedi death XP loss, buffs, PvP, account limits, vehicle call delay) |
 | `player_creation_manager/player_creation_manager.lua` | New character setup (starting items, species, professions, creation cooldown) |
 | `mission_manager/mission_manager.lua` | Mission settings (max active missions, bounty targets, destroy rewards, factional toggles) |
 | `loot_manager/loot_manager.lua` | Loot drop system (chances, rarity tiers, armor stat mods) |
@@ -288,6 +288,28 @@ Once any character on an account first reaches Padawan (`jediState >= 2`), `Play
 - **Ordering**: `PlayerCreationManager::createCharacter` loads the account via `setAccountID + initializeAccount` BEFORE `addProfessionStartingItems`. Do NOT move this back — the bypass needs `ghost->getAccount()` non-null during the PRFI skill grant.
 - **Lua reorder**: `awardJediStatusAndSkill` now calls `setJediState(2)` FIRST, before the `force_title_jedi_*` rank grants, so the C++ hook flips `jedi_unlocked` and the bypass enables the rank grants.
 - **Hidden tree**: the 96 stock `jedi_*` skills in `custom_patches/unpacked_tres/datatables/skill/skills.csv` are marked `IS_HIDDEN=true, GOD_ONLY=true`. The visible Jedi tree is `force_title_jedi_*` / `force_sensitive_*` / `force_discipline_*`.
+
+### Jedi Death XP Loss
+
+Jedi characters (jediState >= 2) lose `jedi_general` XP on death. Three scenarios trigger loss, all configurable in `player_manager/player_manager.lua`:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `applyGlobalXpMultiplierToJediDeathLoss` | `false` | Whether `globalExpMultiplier` applies to death XP loss |
+| `jediDeathXpLossPercent` | `0.05` | Clone death: % of jedi_general XP cap lost (5%) |
+| `jediDeathBountyXpLossCreditsMultiplier` | `2` | Bounty kill: loss = reward credits × multiplier |
+| `jediDeathBountyXpLossMin` | `50000` | Bounty kill: minimum XP loss (positive value) |
+| `jediDeathBountyXpLossMax` | `500000` | Bounty kill: maximum XP loss (positive value) |
+| `jediDeathForceReviveXpLoss` | `50000` | Force revive (RegainConsciousness): flat XP loss |
+
+All Lua values are positive; C++ negates them internally. A hard floor of -10,000,000 `jedi_general` XP exists in `PlayerObjectImplementation::addExperience`.
+
+**C++ call sites** (all in Core3 submodule — changes require full rebuild):
+- Clone death: `PlayerManagerImplementation::sendPlayerToCloner()` line ~1790
+- Bounty kill: `BountyMissionObjectiveImplementation::handlePlayerKilled()` line ~610
+- Force revive: `RegainConsciousnessCommand.h` line ~65
+
+**`applyModifiers` pattern**: `awardExperience()` has a 6th parameter `applyModifiers` (default `true`). When `true`, `globalExpMultiplier` scales the amount. The Jedi death config controls this via `applyGlobalXpMultiplierToJediDeathLoss`. With `globalExpMultiplier = 500` and the toggle set to `false`, a 5% cap loss stays at ~500 XP instead of being amplified to ~250,000.
 
 ### Lua Item Granting
 
