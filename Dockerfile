@@ -1,14 +1,19 @@
 # Create base image with dependencies
 # needed by both builder and final
-FROM ubuntu:16.04 as base-image
+FROM debian:bookworm as base-image
 
-RUN apt-get update && apt-get install -y build-essential \
-    libmysqlclient-dev \
+RUN set -xe; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update && apt-get install -y \
+    libmariadb-dev \
+    libmariadb-dev-compat \
     liblua5.3-dev \
     libdb5.3-dev \
     libssl-dev \
     libboost-all-dev \
-    libcpprest-dev
+    libcpprest-dev \
+    libjemalloc-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY scripts /app/scripts
 RUN ln -s /app/scripts/swgemu.sh /usr/bin/swgemu
@@ -16,18 +21,41 @@ RUN ln -s /app/scripts/swgemu.sh /usr/bin/swgemu
 # Create builder image from base and add
 # needed items for building the project
 FROM base-image as build-image
-RUN apt-get install -y cmake \
+RUN set -xe; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update && apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    cmake \
     ninja-build \
     git \
     default-jre \
-    curl
+    curl \
+    wget \
+    gnupg \
+    lsb-release \
+    software-properties-common \
+    g++ \
+    gcc \
+    ccache \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Clang via LLVM script (same as upstream)
+RUN set -xe; \
+    wget -O /tmp/llvm.sh https://apt.llvm.org/llvm.sh; \
+    chmod +x /tmp/llvm.sh; \
+    /tmp/llvm.sh all || /tmp/llvm.sh all; \
+    (set +x; cd /usr/bin; for i in ../lib/llvm-*/bin/*; do ln -sfv $i .; done); \
+    clang --version; \
+    ld.lld --version; \
+    rm -rf /var/lib/apt/lists/*
 
 # builder image to build Core3
 # this is separate to facilicate using
 # the prior layer for local development
 FROM build-image as builder
 
-RUN curl -L https://github.com/krallin/tini/releases/download/v0.18.0/tini -o /usr/bin/tini
+RUN curl -L https://github.com/krallin/tini/releases/download/v0.19.0/tini -o /usr/bin/tini
 
 WORKDIR /app
 COPY ./Core3 .
@@ -42,11 +70,10 @@ RUN sed -i 's/..\/..\/Core3\///' .git/modules/MMOCoreORB/utils/engine3/config &&
     sed -i 's/..\/.git\/modules\/Core3\//.git\//' MMOCoreORB/utils/engine3/.git
 
 WORKDIR /app/MMOCoreORB
-#RUN make build-ninja-debug
-RUN make build-ninja-debug NINJA_JOBS=6 CMAKE_ARGS="-DENABLE_REST_SERVER=ON"
+RUN make build-ninja-debug NINJA_ARGS="-j6" CMAKE_ARGS="-DENABLE_REST_SERVER=ON"
 
 
-# Create final image that could be used as a 
+# Create final image that could be used as a
 # lighter-weight production image
 FROM base-image as final
 

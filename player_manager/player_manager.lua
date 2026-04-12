@@ -59,6 +59,25 @@ groupExpMultiplier = 1.2
 --Sets a global experience multiplier
 globalExpMultiplier = 500
 
+--Jedi Death XP Loss Configuration
+--Whether the global XP multiplier applies to Jedi death XP loss
+applyGlobalXpMultiplierToJediDeathLoss = false
+
+--Percentage of jedi_general XP cap lost on clone death (0.05 = 5%)
+jediDeathXpLossPercent = 0.05
+
+--Bounty hunter kill: credits multiplier (loss = reward credits * multiplier)
+jediDeathBountyXpLossCreditsMultiplier = 2
+
+--Bounty hunter kill: minimum XP loss (positive value)
+jediDeathBountyXpLossMin = 50000
+
+--Bounty hunter kill: maximum XP loss (positive value, must be >= min)
+jediDeathBountyXpLossMax = 500000
+
+--Force revive (RegainConsciousness): flat XP loss (positive value)
+jediDeathForceReviveXpLoss = 50000
+
 --Sets the base number of control devices of each type that a player can have in their datapad at once
 --For creature pets, A Creature Handler will have the base number + their stored pets skill mod as limit
 baseStoredCreaturePets = 2
@@ -66,9 +85,6 @@ baseStoredFactionPets = 3
 baseStoredDroids = 5
 baseStoredVehicles = 3
 baseStoredShips = 3
-
---Delay in seconds before a vehicle spawns when called outside a city/camp. Set to 0 for instant.
-vehicleCallDelay = 0
 
 -----------------------------------
 --VETERAN REWARDS CONFIG

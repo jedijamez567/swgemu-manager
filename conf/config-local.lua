@@ -12,6 +12,11 @@ Core3.RESTServer = {
     SSLCertFile = "conf/ssl.crt"
 }
 
+-- Enable Jump to Lightspeed
+Core3.JTL = {
+    JTLEnabled = true
+}
+
 -- Enable Galaxy-Wide Grouping
 Core3.PlayerManager = {
     GalaxyWideGrouping = 1  -- 1 = true, 0 = false
