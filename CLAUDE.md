@@ -149,12 +149,16 @@ TRE files are listed in `conf/config.lua` (`TreFiles` array) for the server and 
 
 ```lua
 TreFiles = {
-    "dakota_jedi_profession.tre",  -- position 0 = HIGHEST priority
-    "dakotatest2.tre",
+    "dakotatest2.tre",             -- position 0 = HIGHEST priority (custom skills.iff)
+    "dakota_jedi_profession.tre",  -- profession_defaults_*.iff overrides
     ...
     "bottom.tre"                   -- LOWEST priority
 }
 ```
+
+Custom TRE contents (verified by index plaintext-grep against the .tre files):
+- **`dakotatest2.tre`** — contains a custom `datatables/skill/skills.iff` with populated COMMANDS columns for Jedi rows. Filename index is zlib-compressed and not introspectable via plain `strings`/`grep`; use SIE to view contents.
+- **`dakota_jedi_profession.tre`** — contains exactly 7 PRFI files: `creation/profession_defaults_combat_brawler.iff`, `combat_marksman`, `crafting_artisan`, `outdoors_scout`, `science_medic`, `social_entertainer`, and **`profession_defaults_jedi.iff`**. It does NOT contain `creation/profession_defaults.iff` (PFDT) or `datatables/creation/profession_mods.iff` — those must come from another TRE.
 
 ### TRE vs Database
 
@@ -182,36 +186,46 @@ After editing, rebuild the patch TRE and place it in both the server's `TrePath`
 
 ## Client Binary Patching
 
-Some client behavior is hardcoded in `SWGEmu.exe` and cannot be changed via TRE files or server config. When that happens, the client binary must be patched directly. A patched copy lives at `modified_assets/SWGEmu.exe` (not volume-mounted — copied manually into the client install directory).
+Some client behavior is hardcoded in `SWGEmu.exe` and cannot be changed via TRE files or server config. When that happens, the client binary must be patched directly.
 
-### Jedi Profession Filter Removal
+### Jedi Profession Filter — fixed 2026-04-11 via 1-byte code patch
 
-The client's `SwgCuiAvatarSetupProf::performActivate()` hardcodes a filter that strips "jedi" from the character creation profession dropdown, even when the server PFDT (`creation/profession_defaults.iff`) includes a Jedi entry. From the SWG-Source client source:
+The client's `SwgCuiAvatarSetupProf::performActivate()` hardcodes a filter that strips "jedi" from the character creation profession dropdown, even when the server PFDT (`creation/profession_defaults.iff`) includes a Jedi entry:
 
 ```cpp
-if (professionName == "jedi") {
-    --index;
-    continue;
-}
+if (professionName == "jedi") { --index; continue; }
 ```
 
-The filter references a single null-terminated `"jedi\0"` string literal in the binary's `.rdata` section. There is exactly one standalone occurrence — all other "jedi" strings in the binary are substrings of longer identifiers (`jediTrainer`, `server_dialog_create_jedi`, `/styles.icon.jedi.*`).
+**Working fix**: 1-byte code patch at file offset `0x00866908` in `SWGEmu.exe`, changing `75 08` (`JNZ 0x00c66912`) to `EB 08` (`JMP 0x00c66912`). This unconditionally bypasses the filter's `DEC [EBP-0x18]; JMP continue` path inside `FUN_00c66600` while leaving the `"jedi"` string literal at `0x014A57D8` untouched, so the skill icon renderers that also read that literal (`FUN_00f71040`, `FUN_010552e0`, `FUN_01054690`) still work. Verified in-game: Jedi appears in the profession dropdown AND existing characters' Jedi skill tree icons still render correctly.
 
-**Patch details:**
-- File: `SWGEmu.exe` (22,061,142 bytes, 32-bit x86 PE)
-- Offset: `0x014A57D8` (decimal 21,649,368)
-- Original bytes: `6A 65 64 69` ("jedi")
-- Patched bytes: `78 78 78 78` ("xxxx")
+Full end-to-end runbook (binary patch + server Lua + TRE requirements + account unlock + troubleshooting) is in [`GUIDES/enabling_jedi_at_character_creation.md`](GUIDES/enabling_jedi_at_character_creation.md).
 
-After patching, the filter compares profession names against "xxxx", which never matches, so Jedi passes through and appears in the dropdown. This is a data-only patch — no code is modified and the file size is unchanged.
+### DO NOT patch the `"jedi"` string literal at `0x014A57D8`
 
-**Applying the patch to a fresh client:**
-1. Back up the original: `cp SWGEmu.exe SWGEmu.exe.bak`
-2. Verify bytes at `0x014A57D8` are `6A 65 64 69 00` ("jedi\0")
-3. Overwrite 4 bytes at that offset with `78 78 78 78`
-4. Preserve the null terminator at offset+4
+A prior approach overwrote the literal at `0x014A57D8` with `"xxxx"`. It removes Jedi from the dropdown, but it also breaks every Jedi skill icon in the skill tree (`force_title_jedi_*`, `force_sensitive_*`, `force_discipline_*` all render the default broken icon). The binary contains **six** standalone `"jedi\0"` literals, and `0x014A57D8` is the only one the dropdown filter reads, but it's also the literal one of the skill icon classifiers reads — the compiler pooled both into the same string-literal entry. Data-only patches at that offset are mutually exclusive between the two behaviors.
 
-Server-side requirements for Jedi to actually work once it appears in the dropdown: `allowJediStartingProfession = 1` in `player_creation_manager.lua`, plus a modified TRE containing `creation/profession_defaults.iff` (PFDT with Jedi entry), `creation/profession_defaults_jedi.iff` (PRFI), and `datatables/creation/profession_mods.iff` (Jedi attribute row).
+The six occurrences in the pristine `SWGEmu.exe.bak` (for reference if analysis is ever needed against a different build):
+
+| # | File offset |
+|---|---|
+| 1 | `0x01491C64` |
+| 2 | `0x014A56A9` |
+| 3 | `0x014A56D1` |
+| 4 | `0x014A57D8` ← **DO NOT patch** (shared with skill icon classifier) |
+| 5 | `0x014A5AAB` |
+| 6 | `0x014A5CDD` |
+
+The code-patch approach above sidesteps this entirely by flipping the filter's control-flow branch (at `0x00866908`) instead of clobbering the shared string.
+
+### Ghidra analysis artifacts
+
+- **Project**: `C:\Users\dakot\extract-swg-cilent.gpr` / `.rep` — loaded with the pristine `SWGEmu.exe` baseline, auto-analysis completed (~50 min, do not redo).
+- **Custom script**: `C:\Users\dakot\Tools\ghidra_scripts\FindJediStringXrefs.java` — dumps all xrefs to the `"jedi"` literal with ±30 instructions of context and per-instruction file offsets + raw bytes. Of the 10 xrefs in the current build, only `FUN_00c66600` shows the `--outputIndex; continue;` filter pattern; the other 9 are skill icon classifiers (`FUN_00f71040`, `FUN_010552e0`, `FUN_01054690`), C++ static init atom interning (`FUN_013e05b0`, `009d3620`), and a UI layout helper (`FUN_0120cc30`). None of those should be patched.
+- **Headless runbook**: close the Ghidra GUI first (it holds the project lock — look for `javaw.exe` in `tasklist`), then run `"<ghidra>\support\analyzeHeadless.bat" C:\Users\dakot extract-swg-cilent -process SWGEmu.exe -noanalysis -readOnly -scriptPath C:\Users\dakot\Tools\ghidra_scripts -postScript FindJediStringXrefs.java` where `<ghidra>` is `C:\Users\dakot\Downloads\ghidra_12.0.4_PUBLIC_20260303\ghidra_12.0.4_PUBLIC`.
+
+### Stock client TRE extract
+
+Full extraction of all stock SWG client TREs (excluding `dakotatest2.tre` and `dakota_jedi_profession.tre`) is at `C:\Users\dakot\OneDrive\Desktop\global_extract\`. Use this directory directly instead of trying to introspect TRE archives — `ui/ui_skill.inc`, `ui/ui_styles.inc`, `datatables/skill/skills.iff`, all PRFI files, etc. are in their original IFF/INC form. IFF binary files are columnar — do **not** attempt to read them via `grep -aA <n> "^rowname$"` (the lines after a row name belong to other rows' data, not that row's columns). Use SIE or a real IFF parser.
 
 ## Admin Commands
 
@@ -265,6 +279,16 @@ Jedi skill visibility is gated by `jediState` in `SkillManager.cpp` — each ski
 | 4 | Jedi Knight (Light) | `force_sensitive_*` + `force_discipline_*` (lightsaber, Force powers, healing) |
 | 8 | Jedi Knight (Dark) | Same as 4 |
 
+### Account-Wide Jedi Unlock
+
+Once any character on an account first reaches Padawan (`jediState >= 2`), `PlayerObjectImplementation::setJediState` flips `accounts.jedi_unlocked = 1` and persists via `AccountManager::setAccountJediUnlocked`. `SkillManager::fulfillsSkillPrerequisites` then bypasses the `jediStateRequired` gate for any character on that account, enabling **starting-jedi** as a character creation profession (PRFI `profession_defaults_jedi.iff` SKIL chunk grants `force_title_jedi_novice`, which triggers `HologrindJediManager:onPlayerCreated`'s fast-track to Padawan).
+
+- **Backfill on login**: `HologrindJediManager:onPlayerLoggedIn` calls the Lua-bound `markAccountJediUnlocked(creature)` (defined in `DirectorManager.cpp`) for any character with `jediState >= 2`. Idempotent.
+- **Gate**: fresh accounts (`jedi_unlocked = 0`) cannot shortcut starting-jedi — the PRFI grant silently fails the canLearnSkill check. They must hologrind one character to Padawan first.
+- **Ordering**: `PlayerCreationManager::createCharacter` loads the account via `setAccountID + initializeAccount` BEFORE `addProfessionStartingItems`. Do NOT move this back — the bypass needs `ghost->getAccount()` non-null during the PRFI skill grant.
+- **Lua reorder**: `awardJediStatusAndSkill` now calls `setJediState(2)` FIRST, before the `force_title_jedi_*` rank grants, so the C++ hook flips `jedi_unlocked` and the bypass enables the rank grants.
+- **Hidden tree**: the 96 stock `jedi_*` skills in `custom_patches/unpacked_tres/datatables/skill/skills.csv` are marked `IS_HIDDEN=true, GOD_ONLY=true`. The visible Jedi tree is `force_title_jedi_*` / `force_sensitive_*` / `force_discipline_*`.
+
 ### Lua Item Granting
 
 - **`giveItem(pInventory, templatePath, -1)`** — creates an object from an IFF template directly. Works for equipment, components, deeds.
@@ -278,3 +302,6 @@ Jedi skill visibility is gated by `jediState` in `SkillManager.cpp` — each ski
 - Lua command files follow the pattern: `CommandName = { name = "commandname" }; AddCommand(CommandName)`
 - The Jedi system is configured in `conf/features.lua` via `jediSystem` (options: hologrind, village, custom)
 - The Core3 REST API uses an old cpprest SDK (Ubuntu 16.04, ~v2.8). HTTP proxies must strip modern browser headers or the SDK's low-level parser rejects requests with 400 before application code runs. The Vite proxy in `swgemu-monitor/vite.config.ts` handles this.
+- **MySQL migrations**: Files in `sql/` only auto-run on the FIRST container start against an empty data dir. The persistent bind-mount at `./mysql:/var/lib/mysql` means subsequent restarts skip them. Apply manually: `docker exec -i swgemu_database mysql -uroot -pswgemuroot swgemu < sql/<file>.sql`. MySQL 5.7 lacks `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` — use the `information_schema.COLUMNS` + `PREPARE`/`EXECUTE` pattern (see `sql/03-jedi_unlocked_migration.sql` for the canonical example).
+- **`accounts` schema**: `account_id`, `username`, `password`, `station_id`, `created`, `active`, `admin_level`, `salt`, `jedi_unlocked`. Defined in `sql/01-swgemu.sql` and the Core3 submodule's `sql/swgemu.sql` — keep both in sync.
+- **`SkillManager::fulfillsSkillPrerequisites` gate**: enforces `jediState < jediStateRequired` BEFORE the `isPrivileged()` bypass. Lua `awardSkill` and C++ `awardSkill` both go through this path. The `jedi_unlocked` bypass at lines ~787-801 sidesteps the gate for any character on a previously-unlocked account.

@@ -209,11 +209,15 @@ function HologrindJediManager:awardJediStatusAndSkill(pCreatureObject)
 		return
 	end
 
+	-- Set Jedi state FIRST. The C++ setJediState hook flips account.jedi_unlocked
+	-- to true and persists it, which enables the SkillManager bypass for the
+	-- subsequent force_title_jedi_* awardSkill calls regardless of caller state.
+	PlayerObject(pGhost):setJediState(2)
+
 	awardSkill(pCreatureObject, "force_title_jedi_novice")
 	awardSkill(pCreatureObject, "force_title_jedi_rank_01") -- Initiate rank
 	awardSkill(pCreatureObject, "force_title_jedi_rank_02") -- Padawan rank
 	--awardSkill(pCreatureObject, "force_title_jedi_rank_03") -- Knight rank (grants full access to Jedi skills)
-	PlayerObject(pGhost):setJediState(2)
 	
 	-- Grant all force sensitive skill trees
 	local forceSensitiveBranches = {
@@ -329,6 +333,12 @@ function HologrindJediManager:onPlayerLoggedIn(pCreatureObject)
 		-- If player is in Jedi State 1 (Force Sensitive) with Hologrind professions, ensure they have novice skill
 		if (jediState == 1 and hologrindProfessions ~= nil and #hologrindProfessions > 0 and not CreatureObject(pCreatureObject):hasSkill("force_title_jedi_novice")) then
 			awardSkill(pCreatureObject, "force_title_jedi_novice")
+		end
+
+		-- Backfill account.jedi_unlocked for any character that reached Padawan or higher
+		-- before this feature existed. Idempotent: the C++ binding early-exits if already set.
+		if (jediState >= 2) then
+			markAccountJediUnlocked(pCreatureObject)
 		end
 	end
 	
