@@ -10,11 +10,11 @@ SWGEmu Manager is a Docker-based system for running a customized Star Wars Galax
 
 **Docker Compose** orchestrates two services:
 - **swgemu_database**: MySQL 5.7.28 (port 3306), initialized from `sql/` scripts
-- **swgemu_server**: Core3 game server (multi-stage Docker build from Ubuntu 16.04), compiled with `-DENABLE_REST_SERVER=ON`
+- **swgemu_server**: Core3 game server (multi-stage Docker build from Debian Bookworm with Clang/LLD), compiled with `-DENABLE_REST_SERVER=ON`
 
 **Core design pattern**: All Lua customizations in the repo root are volume-mounted over Core3 defaults at container startup. Restart the container to pick up changes — no recompile needed unless Core3 C++ source changes.
 
-**Core3 submodule** (`Core3/`): Custom fork at `jedijamez567/Core3` on the `custom` branch. Upstream remote `swgemu/Core3` is configured for fetching updates (`git fetch upstream && git merge upstream/unstable`). Submodule changes require a full rebuild (`docker-compose down && docker-compose up -d --build`).
+**Core3 submodule** (`Core3/`): Custom fork at `jedijamez567/Core3`. Two branches: `custom` (base) and `custom-jtl` (JTL/space support). The `master` branch tracks `custom-jtl`. Upstream remote `swgemu/Core3` is configured for fetching updates (`git fetch upstream && git merge upstream/unstable`). Submodule changes require a full rebuild (`docker-compose down && docker-compose up -d --build`).
 
 ## Build & Run Commands
 
@@ -42,7 +42,7 @@ All Lua files mount over Core3 defaults in the container. Key files:
 | Path | Purpose |
 |------|---------|
 | `conf/config.lua` | Main server config (database, network, galaxy, zones, TRE files) |
-| `conf/config-local.lua` | Local overrides (REST API settings, galaxy-wide grouping) |
+| `conf/config-local.lua` | Local overrides (REST API settings, JTL enablement, galaxy-wide grouping) |
 | `conf/features.lua` | Feature toggles (jedi system, armor, GCW) |
 | `player_manager/player_manager.lua` | Player settings (XP multipliers, Jedi death XP loss, buffs, PvP, account limits, vehicle call delay) |
 | `player_creation_manager/player_creation_manager.lua` | New character setup (starting items, species, professions, creation cooldown) |
@@ -134,6 +134,18 @@ freeGodMode = lua->getGlobalByte("freeGodMode");
 ```
 
 The volume-mounted Lua override takes precedence over the Core3 default, so Lua-only changes just need a container restart. C++ changes (adding the member variable / read call) require a full rebuild.
+
+### Ship Management Command Pattern
+
+Ship management commands (`src/server/zone/objects/creature/commands/`) parse arguments as `shipID slot [extras]` via `StringTokenizer`. Common patterns:
+- Resolve ship: `creature->getZoneServer()->getObject(shipID)` then `shipSceneO->asShipObject()`
+- Validate ownership: `ship->getOwner().get() != creature`
+- Locking: `Locker locker(ship, creature)` (creature pre-locked by QueueCommand framework)
+- Credits: `TransactionLog(creature, ship, TrxCode::SHIPPINGSYSTEM, cost, true)` + `creature->subtractCashCredits(cost)`
+- Admin bypass: `ghost->hasGodMode()` (adminLevel > 0), not `isPrivileged()` (adminLevel > 6)
+- Payment message: `StringIdChatParameter("@base_player:prose_pay_success_no_target")` with `setDI(amount)`
+- Insufficient funds: `@error_message:insufficient_funds_cash` (not `insufficient_funds` which doesn't exist)
+- Ship repair backend: `ship->repairShip(1.0f, false)` — 100% repair, no decay. Cost = `ship->getTotalShipDamage()` (1 credit per damage point)
 
 ### Volume Mount Overlay
 
