@@ -82,4 +82,4 @@
 
 --testing = "test"
 feature("jedisystem", "hologrind");
-feature("amorProtection", "minisuits");
+feature("armorProtection", "minisuits");

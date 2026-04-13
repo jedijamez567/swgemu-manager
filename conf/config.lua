@@ -89,7 +89,7 @@ Core3 = {
 	-- Galaxy Configuration
 	ZoneGalaxyID = 2, --The actual zone server's galaxyID. Should coordinate with your login server.
 	ZoneGalaxyName = "Chevelle", --Name of the galaxy as it appears in the server list
-	ZoneGalaxyAddress = "localhost", --Address/hostname for the galaxy
+	ZoneGalaxyAddress = "192.168.5.69", --Address/hostname for the galaxy
 	ZoneGalaxyPort = 44463, --Main port for the galaxy
 	ZoneGalaxyPingPort = 44462, --Ping port for the galaxy
 
