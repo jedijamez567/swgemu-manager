@@ -48,8 +48,9 @@ All Lua files mount over Core3 defaults in the container. Key files:
 | `player_creation_manager/player_creation_manager.lua` | New character setup (starting items, species, professions, creation cooldown) |
 | `mission_manager/mission_manager.lua` | Mission settings (max active missions, bounty targets, destroy rewards, factional toggles) |
 | `loot_manager/loot_manager.lua` | Loot drop system (chances, rarity tiers, armor stat mods) |
+| `resource_manager/resource_manager.lua` | Resource manager config — spawn pools, JTL, and sampling tuning (`sampleYieldMultiplier`, `sampleIntervalMs`, `sampleGambleMultiplier`, `sampleConcentrationMultiplier`) |
 | `resource_manager/resource_manager_spawns.lua` | Resource spawn data (~370K lines) |
-| `jedi/` | Jedi unlock system — `hologrind_jedi_manager.lua` is primary |
+| `jedi/` | Jedi unlock system — `jedi_manager.lua` (progression type, combat XP rate), `hologrind_jedi_manager.lua` (novice→padawan→knight), `frs_manager.lua` (council ranks, auto-promotion, PvE crossover ratio) |
 | `commands/` | ~150 slash command definitions, mounted to `bin/scripts/commands/` |
 | `screenplays/jedi/` | Jedi trials, padawan convos, Force shrine components |
 
@@ -265,7 +266,11 @@ The server uses the **hologrind** Jedi progression path (configured in `conf/fea
 
 1. **Master profession** → `checkIfProgressedToJedi()` awards `force_title_jedi_novice`, sets `jediState=1`, creates waypoint to nearest Force Shrine
 2. **Meditate at Force Shrine** (must crouch) → `awardJediStatusAndSkill()` awards Padawan rank (`force_title_jedi_rank_02`), all `force_sensitive_*` skills, sets `jediState=2`, gives Jedi Starter Kit (crafting tool, padawan robe, crystal packs, resource deeds, color crystal)
-3. **Reach 5,000 faction points** (Rebel or Imperial) + **meditate again** → `promoteToKnight()` awards Knight rank (`force_title_jedi_rank_03`), sets `jediState=4`, gives knight robe + Legendary Krayt Dragon Pearl + lightsaber crafting materials
+3. **Reach 5,000 faction points** (Rebel or Imperial) + **meditate again** → `promoteToKnight()` awards Knight rank (`force_title_jedi_rank_03`), sets `jediState=4`, gives knight robe + Legendary Krayt Dragon Pearl + lightsaber crafting materials, and **auto-enrolls the character into the Force Rank System** at rank 0 by calling `setFrsCouncil(LIGHT|DARK)` + `setFrsRank(0)` (faction-based — higher of Rebel/Imperial standing wins). `setFrsRank(0)` routes through `FrsManager::setPlayerRank → updatePlayerSkills`, which awards `force_rank_{light,dark}_novice`.
+
+**Knight eligibility gates** (`jedi/hologrind_jedi_manager.lua:checkKnightEligibility`): has `force_title_jedi_rank_02` (Padawan), does NOT have `force_title_jedi_rank_03` (Knight), and ≥5k Rebel OR Imperial faction standing. Do NOT re-add a hologrind-professions gate here — starting-jedi Padawans never hit `addHologrindProfession` (they short-circuit via the `force_title_jedi_novice` fast-track in `onPlayerCreated`), so that gate would block every account-unlocked Jedi from ever becoming Knight.
+
+**Eligibility notification** fires on login via `HologrindJediManager:onPlayerLoggedIn` (SUI popup *"You have proven yourself worthy…"* + yellow waypoint to the nearest Force Shrine via `createForceShrineWaypoint`). There is no hook on faction-standing change — the popup only appears at login or when the player meditates at a shrine (which promotes immediately through `ForceShrineMenuComponent:doMeditate → checkKnightEligibility → promoteToKnight`). The `addWaypoint` Lua binding requires exactly 10 args in the order `(planet, name, desc, x, z, y, color, active, notifyClient, specialTypeID)` where `z` is altitude — use `getWorldPositionX/Z/Y()` (X and Y are horizontal in Core3's SceneObject convention, Z is altitude) and the registered constant `WAYPOINT_YELLOW` (underscore; `WAYPOINTYELLOW` is undefined and silently resolves to `nil`, failing the binding's arg-count check).
 
 ### jediState and Skill Visibility
 
@@ -289,6 +294,22 @@ Once any character on an account first reaches Padawan (`jediState >= 2`), `Play
 - **Lua reorder**: `awardJediStatusAndSkill` now calls `setJediState(2)` FIRST, before the `force_title_jedi_*` rank grants, so the C++ hook flips `jedi_unlocked` and the bypass enables the rank grants.
 - **Hidden tree**: the 96 stock `jedi_*` skills in `custom_patches/unpacked_tres/datatables/skill/skills.csv` are marked `IS_HIDDEN=true, GOD_ONLY=true`. The visible Jedi tree is `force_title_jedi_*` / `force_sensitive_*` / `force_discipline_*`.
 
+### Jedi Combat XP Rate
+
+Force-attack damage is tagged `xpType = "jedi_general"` in `CombatManager::applyDamage` (CombatManager.cpp:1430-1431, 1642-1643). The award step in `PlayerManagerImplementation::disseminateExperience` then applies a configurable rate multiplier and decides whether the scaled amount also contributes to `combat_general`.
+
+**Configuration** (`jedi/jedi_manager.lua`):
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `jediExperienceRatio` | `0.2` | Multiplier on `jedi_general` XP from combat damage (stock = 20% of the non-jedi rate). |
+| `jediCountsTowardCombatGeneral` | `false` | When `true`, the scaled jedi_general amount also accumulates into `combat_general`. Stock behavior is false. |
+
+- Loaded by `JediManager::loadConfiguration` (`Core3/MMOCoreORB/src/server/zone/managers/jedi/JediManager.cpp`) right after `runFile("scripts/managers/jedi/jedi_manager.lua")`, stored under the singleton's `ReadWriteLock`.
+- Read by `PlayerManagerImplementation::disseminateExperience` once per attacker (cached outside the per-xpType inner loop) via `JediManager::instance()->getJediExperienceRatio()` / `getJediCountsTowardCombatGeneral()`.
+- Ratio applies BEFORE `awardExperience`, so `speciesModifier * buffMultiplier * localMultiplier * globalExpMultiplier` still stacks on top.
+- C++ changes (adding the members, include in PlayerManagerImplementation.cpp) require a full rebuild; Lua-only value tweaks just need `docker-compose restart swgemu`.
+
 ### Jedi Death XP Loss
 
 Jedi characters (jediState >= 2) lose `jedi_general` XP on death. Three scenarios trigger loss, all configurable in `player_manager/player_manager.lua`:
@@ -310,6 +331,59 @@ All Lua values are positive; C++ negates them internally. A hard floor of -10,00
 - Force revive: `RegainConsciousnessCommand.h` line ~65
 
 **`applyModifiers` pattern**: `awardExperience()` has a 6th parameter `applyModifiers` (default `true`). When `true`, `globalExpMultiplier` scales the amount. The Jedi death config controls this via `applyGlobalXpMultiplierToJediDeathLoss`. With `globalExpMultiplier = 500` and the toggle set to `false`, a 5% cap loss stays at ~500 XP instead of being amplified to ~250,000.
+
+### FRS Council Ranks (Force Rank System)
+
+Post-Knight progression uses Core3's FRS. Knights are enrolled automatically by `promoteToKnight` (see Progression Flow above). Above rank 0, advancement is gated by `force_rank_xp` — a separate pool from `jedi_general` — with thresholds in `jedi/frs_manager.lua` (`lightRankingData` / `darkRankingData`, 5k / 15k / 25k … 400k).
+
+**Configuration** (`jedi/frs_manager.lua`):
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `frsEnabled` | `1` | Master toggle for the FRS. |
+| `autoPromotionEnabled` | `1` | Bypasses the stock voting/petition/challenge flow. When `1`, crossing a rank's `requiredExperience` automatically promotes the player. |
+| `pveForceRankXpRatio` | `0.10` | Fraction of `jedi_general` XP that also mints `force_rank_xp` on PvE kills. `0` disables the crossover. |
+| `frsExperienceValues` | (table) | PvP-outcome XP grants (`nonjedi_win`, `bh_win`, `padawanN_lose`, `rankN_win/lose`, …). Stock PvP-only; a PvE-only server earns nothing from this table. |
+
+**Auto-promotion hooks** (all in Core3 submodule — C++ changes require full rebuild):
+
+- `FrsManagerImplementation::playerLoggedIn` (~line 395) — re-checks on every login in case a player accumulated XP offline or pre-change.
+- `FrsManagerImplementation::adjustFrsExperience` (~line 925) — checks immediately after any `force_rank_xp` grant. Promotes via `promotePlayer → setPlayerRank → updatePlayerSkills`, which awards `force_rank_{light,dark}_rank_NN` (and the bonus titles `force_title_jedi_rank_04` at rank 4 and `force_title_jedi_master` at rank 8). The auto-promotion check intentionally runs even when `hasCappedExperience("force_rank_xp")` is true — a capped player must still be able to promote so the new rank skill's higher cap lets subsequent XP grants resume. Do NOT re-wrap the promotion check in the cap early-return: rank thresholds overlap with per-skill caps (rank 0 novice cap = 15,000 = rank 2 threshold), so capping at novice without the bypass strands the player until relog.
+- `PlayerManagerImplementation::awardExperience` (~line 2673) — **PvE crossover.** When `xpType == "jedi_general"` and `xp > 0`, grants `floor(xp * pveForceRankXpRatio)` as `force_rank_xp` via `frsManager->adjustFrsExperience(player, frsXp, false)`. Guarded on `rank >= 0 && councilType == LIGHT|DARK` so only FRS members get the crossover. No system-message spam (third arg `false`). No infinite loop — `adjustFrsExperience` uses `PlayerObject::addExperience` directly, not `PlayerManager::awardExperience`.
+
+**XP sources for `force_rank_xp`**: Force-attack PvE kills (see `CombatManager.cpp:1431,1643` — `xpType = "jedi_general"` only when `data.isForceAttack()`), filtered through the crossover above. Plus the stock PvP-outcome table when applicable. Weapon-based PvE attacks by a Jedi produce weapon XP, NOT `jedi_general`, so they don't feed the crossover.
+
+**FRS IDL member declaration & getter** (`Core3/MMOCoreORB/src/server/zone/managers/frs/FrsManager.idl`): `pveForceRankXpRatio` is a `protected transient float` initialized to `0.0f` in the constructor, exposed via `public float getPveForceRankXpRatio()`. Read from Lua in `loadLuaConfig` via `lua->getGlobalFloat("pveForceRankXpRatio")`.
+
+## Resource Sampling Tuning
+
+Survey-tool sampling (`/sample`) has four configurable knobs in `resource_manager/resource_manager.lua`. All are read once at server startup by `ResourceManagerImplementation::loadConfigData()` and pushed into `ResourceSpawner::setSampleTuning()`.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `sampleYieldMultiplier` | `1.0` | Flat multiplier on `unitsExtracted` per successful sample. Applied at `ResourceSpawner.cpp:1009` as `maxUnitsExtracted * (surveySkill/100) * samplingMultiplier * cityMultiplier`. |
+| `sampleIntervalMs` | `25000` | Delay between consecutive sample ticks. Read by `SurveySessionImplementation::rescheduleSample()` via `resourceManager->getResourceSpawner()->getSampleIntervalMs()`. |
+| `sampleGambleMultiplier` | `5.0` | Payout on the gamble minigame's success branch. Replaces the legacy `*= 5` at `ResourceSpawner.cpp:1015`. |
+| `sampleConcentrationMultiplier` | `5.0` | Payout when within 10 m of a detected rich node. Replaces the legacy `*= 5` at `ResourceSpawner.cpp:1026`. |
+
+**Defensive defaults**: `loadConfigData` clamps non-positive multipliers to their stock value and `sampleIntervalMs < 1000` back to `25000`, so an omitted/zero Lua value behaves like stock rather than breaking sampling.
+
+**C++ call sites** (all in Core3 submodule — changes require full rebuild):
+- `ResourceSpawner.h` — stores the four fields (`samplingMultiplier` is `float`, not `int`, to allow fractional values).
+- `ResourceSpawner::setSampleTuning()` — single setter called from the manager after Lua parse.
+- `ResourceSpawner::sendSampleResults()` — applies the yield + jackpot multipliers.
+- `SurveySessionImplementation::rescheduleSample()` — reads the interval per-tick; already had a `resourceManager` reference set in `startSession()`, so no new plumbing.
+
+Lua-only value tweaks take effect on `docker-compose restart swgemu`. C++ changes (adding a knob, changing formula) require a full rebuild.
+
+### Force Run Toggle
+
+`/forceRun1`, `/forceRun2`, `/forceRun3` are toggleable — recasting the active tier removes the buff (no Force refund). Implemented in [ForceRun1Command.h](Core3/MMOCoreORB/src/server/zone/objects/creature/commands/ForceRun1Command.h), [ForceRun2Command.h](Core3/MMOCoreORB/src/server/zone/objects/creature/commands/ForceRun2Command.h), [ForceRun3Command.h](Core3/MMOCoreORB/src/server/zone/objects/creature/commands/ForceRun3Command.h) by letting `JediQueueCommand::doJediSelfBuffCommand()` run unimpeded — its built-in branch at [JediQueueCommand.h:76-80](Core3/MMOCoreORB/src/server/zone/objects/creature/commands/JediQueueCommand.h#L76-L80) (`hasBuff(buffCRC) → removeBuff → return SUCCESS`) handles the toggle. Stock SWGEmu intercepts with `hasBuff(buffCRC) ? NOSTACKJEDIBUFF : doJediSelfBuffCommand(...)`, which is why Force Run is fire-and-forget upstream.
+
+- Tier-2/3 cleanup is free: `CreatureObjectImplementation::removeBuff(uint32)` at [CreatureObjectImplementation.cpp:3041-3056](Core3/MMOCoreORB/src/server/zone/objects/creature/CreatureObjectImplementation.cpp#L3041-L3056) cascades through `getSecondaryBuffCRCs()`, so the paired `PrivateSkillMultiplierBuff` (`private_damage_divisor`) is removed automatically.
+- Cross-tier block (e.g. `/forceRun2` while FR1 is active) now returns `NOSTACKJEDIBUFF` directly to the framework, which emits `@jedi_spam:force_buff_present` via [QueueCommand.cpp:200-205](Core3/MMOCoreORB/src/server/zone/objects/creature/commands/QueueCommand.cpp#L200-L205). Stock code hardcoded `@jedi_spam:already_force_running` and downgraded to `GENERALERROR`.
+- Same toggle idiom works for any `JediQueueCommand` subclass that currently short-circuits with `hasBuff ? NOSTACKJEDIBUFF : ...` — just remove the ternary.
+- C++ change — requires full rebuild, not a Lua hot-reload.
 
 ### Lua Item Granting
 

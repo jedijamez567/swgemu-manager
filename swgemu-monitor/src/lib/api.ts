@@ -74,6 +74,19 @@ export async function fetchAccount(id: number): Promise<AccountDetail> {
   return res.json();
 }
 
+export async function setAccountJediUnlocked(
+  id: number,
+  jediUnlocked: boolean
+): Promise<{ account_id: number; jedi_unlocked: number }> {
+  const res = await fetch(`${DB_BASE}/accounts/${id}/jedi-unlocked`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jedi_unlocked: jediUnlocked }),
+  });
+  if (!res.ok) throw new Error(`Jedi unlock toggle failed: ${res.status}`);
+  return res.json();
+}
+
 export async function searchCharactersDB(
   search: string
 ): Promise<Character[]> {

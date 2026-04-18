@@ -41,6 +41,7 @@ services:
       - ./tre:/home/swgemu/Desktop/SWGEmu
       - ./conf:/app/MMOCoreORB/bin/conf
       - ./Core3/MMOCoreORB/bin/scripts:/app/MMOCoreORB/bin/scripts
+      - ./resource_manager/resource_manager.lua:/app/MMOCoreORB/bin/scripts/managers/resource_manager.lua
       - ./resource_manager/resource_manager_spawns.lua:/app/MMOCoreORB/bin/scripts/managers/resource_manager_spawns.lua
       - ./loot_manager/loot_manager.lua:/app/MMOCoreORB/bin/scripts/managers/loot_manager.lua
       - ./mission_manager/mission_manager.lua:/app/MMOCoreORB/bin/scripts/managers/mission/mission_manager.lua

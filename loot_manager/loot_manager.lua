@@ -46,9 +46,9 @@ baseLootChance = 0.7      -- 20% base chance for loot to drop
 lootChancePerLevel = 0.002 -- Additional 0.2% chance per creature level
 
 --Determines how often exceptional and legendary items can drop.
-yellowChance = 1000 -- 1 in 1,000
-exceptionalChance = 5000 --1 in 100,000
-legendaryChance = 0 --1 in 1,000,000
+yellowChance = 50 -- 1 in 1,000
+exceptionalChance = 100 --1 in 100,000
+legendaryChance = 1000 --1 in 1,000,000
 --yellowChance = 50 --1 in 50 for testing
 --exceptionalChance = 100 --1 in 100 for testing
 --legendaryChance = 1000 --1 in 1000 for testing
@@ -60,6 +60,16 @@ legendaryModifier = 5
 
 --The chance for random skill mods to be on looted weapons/wearables
 skillModChance = 10 -- 1 in 500
+
+-- Dot Distribution chance by DOT type. They must equate to 1.0
+poisonDotChance = 0.50
+diseaseDotChance = 0.35
+fireDotChance = 0.15
+
+-- Dot Distribution chance by HAM type. They must equate to 1.0
+healthDotChance = 0.50
+actionDotChance = 0.35
+mindDotChance = 0.15
 
 -- Value ranges for random dots on looted weapons (chance is set individually on the loot items)
 randomDotAttribute = {0, 8} -- See CreatureAttributes.h in src for numbers.

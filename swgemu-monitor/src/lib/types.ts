@@ -109,6 +109,7 @@ export interface Account {
   created: string;
   active: number;
   admin_level: number;
+  jedi_unlocked: number;
   character_count?: number;
 }
 

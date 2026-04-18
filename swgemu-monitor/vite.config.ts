@@ -18,6 +18,41 @@ function swgemuDbPlugin(): Plugin {
     return new URL(req.url!, `http://${req.headers.host}`);
   }
 
+  function readBody(req: IncomingMessage): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+      req.on('error', reject);
+    });
+  }
+
+  async function handleSetJediUnlocked(
+    accountId: number,
+    req: IncomingMessage,
+    res: ServerResponse
+  ) {
+    const body = await readBody(req);
+    let parsed: { jedi_unlocked?: unknown };
+    try {
+      parsed = body ? JSON.parse(body) : {};
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    const flag = parsed.jedi_unlocked ? 1 : 0;
+    const [result] = await pool.query(
+      'UPDATE accounts SET jedi_unlocked = ? WHERE account_id = ?',
+      [flag, accountId]
+    );
+    const affected = (result as { affectedRows: number }).affectedRows;
+    if (affected === 0) {
+      json(res, 404, { error: 'Account not found' });
+      return;
+    }
+    json(res, 200, { account_id: accountId, jedi_unlocked: flag });
+  }
+
   async function handleGalaxy(res: ServerResponse) {
     const [rows] = await pool.query('SELECT * FROM galaxy LIMIT 1');
     const galaxies = rows as Record<string, unknown>[];
@@ -49,7 +84,7 @@ function swgemuDbPlugin(): Plugin {
     const total = (countRows as { total: number }[])[0].total;
 
     const [rows] = await pool.query(
-      `SELECT a.account_id, a.username, a.created, a.active, a.admin_level,
+      `SELECT a.account_id, a.username, a.created, a.active, a.admin_level, a.jedi_unlocked,
               (SELECT COUNT(*) FROM characters c WHERE c.account_id = a.account_id) as character_count
        FROM accounts a ${whereClause}
        ORDER BY a.account_id DESC
@@ -68,7 +103,7 @@ function swgemuDbPlugin(): Plugin {
 
   async function handleAccountDetail(accountId: number, res: ServerResponse) {
     const [accountRows] = await pool.query(
-      'SELECT account_id, username, created, active, admin_level FROM accounts WHERE account_id = ?',
+      'SELECT account_id, username, created, active, admin_level, jedi_unlocked FROM accounts WHERE account_id = ?',
       [accountId]
     );
     const accounts = accountRows as Record<string, unknown>[];
@@ -156,8 +191,11 @@ function swgemuDbPlugin(): Plugin {
           } else {
             // Check for /db/accounts/:id pattern
             const accountMatch = path.match(/^\/db\/accounts\/(\d+)$/);
+            const jediMatch = path.match(/^\/db\/accounts\/(\d+)\/jedi-unlocked$/);
             if (accountMatch && req.method === 'GET') {
               await handleAccountDetail(parseInt(accountMatch[1]), res);
+            } else if (jediMatch && req.method === 'PATCH') {
+              await handleSetJediUnlocked(parseInt(jediMatch[1]), req, res);
             } else {
               json(res, 404, { error: 'Not found' });
             }

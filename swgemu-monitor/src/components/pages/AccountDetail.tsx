@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { AccountDetail as AccountDetailType, Galaxy } from '../../lib/types';
-import { fetchAccount, banAccount } from '../../lib/api';
+import { fetchAccount, banAccount, setAccountJediUnlocked } from '../../lib/api';
 import { ResultDisplay } from '../ResultDisplay';
 import { ConfirmDialog } from '../ConfirmDialog';
 
@@ -39,6 +39,11 @@ export function AccountDetail({ accountId, token, galaxy, onSelectCharacter }: A
   const [banLoading, setBanLoading] = useState(false);
   const [confirmBan, setConfirmBan] = useState(false);
 
+  // Jedi unlock toggle state
+  const [jediLoading, setJediLoading] = useState(false);
+  const [jediError, setJediError] = useState<string | null>(null);
+  const [confirmJedi, setConfirmJedi] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -55,6 +60,25 @@ export function AccountDetail({ accountId, token, galaxy, onSelectCharacter }: A
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleToggleJedi = async () => {
+    if (!data) return;
+    setConfirmJedi(false);
+    setJediLoading(true);
+    setJediError(null);
+    try {
+      const next = !data.account.jedi_unlocked;
+      await setAccountJediUnlocked(accountId, next);
+      setData({
+        ...data,
+        account: { ...data.account, jedi_unlocked: next ? 1 : 0 },
+      });
+    } catch (err) {
+      setJediError(err instanceof Error ? err.message : 'Failed to update jedi_unlocked');
+    } finally {
+      setJediLoading(false);
+    }
+  };
 
   const handleBan = async () => {
     setConfirmBan(false);
@@ -101,6 +125,14 @@ export function AccountDetail({ accountId, token, galaxy, onSelectCharacter }: A
           <span className="info-value">
             <span className={account.active ? 'status-active' : 'status-inactive'}>
               {account.active ? 'Yes' : 'No'}
+            </span>
+          </span>
+        </div>
+        <div className="info-card">
+          <span className="info-label">Jedi Unlocked</span>
+          <span className="info-value">
+            <span className={account.jedi_unlocked ? 'status-active' : 'status-inactive'}>
+              {account.jedi_unlocked ? 'Yes' : 'No'}
             </span>
           </span>
         </div>
@@ -182,6 +214,22 @@ export function AccountDetail({ accountId, token, galaxy, onSelectCharacter }: A
         )}
       </div>
 
+      {/* Jedi Unlock Toggle */}
+      <div className="subsection">
+        <button
+          className={`btn ${account.jedi_unlocked ? 'btn-danger' : 'btn-primary'}`}
+          disabled={jediLoading}
+          onClick={() => setConfirmJedi(true)}
+        >
+          {jediLoading
+            ? 'Updating...'
+            : account.jedi_unlocked
+              ? 'Disable Jedi Unlock'
+              : 'Enable Jedi Unlock'}
+        </button>
+        {jediError && <div className="error-bar">{jediError}</div>}
+      </div>
+
       {/* Ban Action */}
       <div className="subsection">
         <button
@@ -240,6 +288,21 @@ export function AccountDetail({ accountId, token, galaxy, onSelectCharacter }: A
           danger
           onConfirm={handleBan}
           onCancel={() => setConfirmBan(false)}
+        />
+      )}
+
+      {confirmJedi && (
+        <ConfirmDialog
+          title={account.jedi_unlocked ? 'Disable Jedi Unlock' : 'Enable Jedi Unlock'}
+          message={
+            account.jedi_unlocked
+              ? `Disable Jedi unlock for "${account.username}"? Characters on this account will no longer bypass the jediState prerequisite gate.`
+              : `Enable Jedi unlock for "${account.username}"? Any character on this account will bypass the jediState gate and can roll starting-Jedi at creation.`
+          }
+          confirmLabel={account.jedi_unlocked ? 'Disable' : 'Enable'}
+          danger={!!account.jedi_unlocked}
+          onConfirm={handleToggleJedi}
+          onCancel={() => setConfirmJedi(false)}
         />
       )}
     </section>

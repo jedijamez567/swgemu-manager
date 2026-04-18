@@ -190,10 +190,11 @@ function HologrindJediManager:createForceShrineWaypoint(pCreatureObject)
 	if (pClosestShrine ~= nil) then
 		local zoneName = SceneObject(pClosestShrine):getZoneName()
 		local capitalizedZone = zoneName:gsub("^%l", string.upper)
-		PlayerObject(pGhost):addWaypoint(zoneName, capitalizedZone .. " Force Shrine", "", 
-			SceneObject(pClosestShrine):getWorldPositionX(), 
-			SceneObject(pClosestShrine):getWorldPositionY(), 
-			WAYPOINTYELLOW, true, true, 0)
+		PlayerObject(pGhost):addWaypoint(zoneName, capitalizedZone .. " Force Shrine", "",
+			SceneObject(pClosestShrine):getWorldPositionX(),
+			SceneObject(pClosestShrine):getWorldPositionZ(),
+			SceneObject(pClosestShrine):getWorldPositionY(),
+			WAYPOINT_YELLOW, true, true, 0)
 		CreatureObject(pCreatureObject):sendSystemMessage("A waypoint to a nearby Force Shrine has been added to your datapad.")
 	else
 		CreatureObject(pCreatureObject):sendSystemMessage("Unable to locate a Force Shrine. Please seek one out manually.")
@@ -346,6 +347,7 @@ function HologrindJediManager:onPlayerLoggedIn(pCreatureObject)
 	if self:checkKnightEligibility(pCreatureObject) then
 		local suiManager = LuaSuiManager()
 		suiManager:sendMessageBox(pCreatureObject, pCreatureObject, "Jedi Knight", "You have proven yourself worthy. Meditate at a Force Shrine to become a Jedi Knight.", "@ok", "HologrindJediManager", "notifyOkPressed")
+		self:createForceShrineWaypoint(pCreatureObject)
 	end
 end
 
@@ -365,13 +367,7 @@ function HologrindJediManager:checkKnightEligibility(pCreatureObject)
 	if CreatureObject(pCreatureObject):hasSkill("force_title_jedi_rank_03") then
 		return false
 	end
-	
-	-- Must be Hologrind Jedi
-	local hologrindProfessions = PlayerObject(pGhost):getHologrindProfessions()
-	if (hologrindProfessions == nil or #hologrindProfessions == 0) then
-		return false
-	end
-	
+
 	-- Must have 5000+ faction points in rebel OR imperial
 	local rebelPoints = PlayerObject(pGhost):getFactionStanding("rebel")
 	local imperialPoints = PlayerObject(pGhost):getFactionStanding("imperial")

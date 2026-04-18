@@ -4,6 +4,10 @@ frsEnabled = 1
 -- Set to 1 to enable auto-promotion, 0 to require voting/challenges
 autoPromotionEnabled = 1
 
+-- Ratio of jedi_general XP to also grant as force_rank_xp on PvE kills.
+-- 0 disables the crossover. 0.1 = 10% of jedi_general XP becomes force_rank_xp.
+pveForceRankXpRatio = 0.10
+
 -- Object ID of Enclave buildings
 lightEnclaveID = 8525417
 darkEnclaveID = 3435626
