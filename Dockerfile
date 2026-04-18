@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # Create base image with dependencies
 # needed by both builder and final
 FROM debian:bookworm as base-image
@@ -70,8 +72,16 @@ RUN sed -i 's/..\/..\/Core3\///' .git/modules/MMOCoreORB/utils/engine3/config &&
     sed -i 's/..\/.git\/modules\/Core3\//.git\//' MMOCoreORB/utils/engine3/.git
 
 WORKDIR /app/MMOCoreORB
+
+ENV CCACHE_DIR=/root/.ccache \
+    CCACHE_MAXSIZE=20G \
+    CCACHE_COMPILERCHECK=content
+
 # RUN make build-ninja-debug NINJA_ARGS="-j10" CMAKE_ARGS="-DENABLE_REST_SERVER=ON"
-RUN make build-ninja-debug NINJA_ARGS="" CMAKE_ARGS="-DENABLE_REST_SERVER=ON"
+RUN --mount=type=cache,target=/root/.ccache,id=swgemu-ccache \
+    --mount=type=cache,target=/app/MMOCoreORB/build,id=swgemu-build \
+    make build-ninja-debug NINJA_ARGS="" CMAKE_ARGS="-DENABLE_REST_SERVER=ON" \
+    && ccache -s
 
 
 # Create final image that could be used as a

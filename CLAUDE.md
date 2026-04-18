@@ -35,6 +35,28 @@ docker-compose logs -f swgemu
 mysql -h localhost -u swgemu -p swgemu-sql swgemu
 ```
 
+## Build Performance
+
+The Dockerfile uses BuildKit cache mounts so the slow C++ rebuild only happens once. Two persistent caches live outside the image layers and survive across `docker-compose build` invocations:
+
+| Mount | Purpose |
+|-------|---------|
+| `/root/.ccache` (id `swgemu-ccache`, 20 GB max) | Compiled-object-file cache. cmake auto-uses it (`ENABLE_CCACHE=ON` in `Core3/MMOCoreORB/CMakeLists.txt:54`) — the Dockerfile just makes it persistent and sets `CCACHE_COMPILERCHECK=content` (mtime-based checks misfire in Docker). |
+| `/app/MMOCoreORB/build` (id `swgemu-build`) | ninja's incremental state. Lets ninja re-evaluate only the changed translation units instead of regenerating from scratch each build. |
+
+The build `RUN` ends with `ccache -s` so the build log prints hit/miss stats — useful to confirm caching is working.
+
+**Expected timings on a Ryzen 5 2600 (6c/12t):**
+- First build after Dockerfile changes: ~20 min (cache priming, identical to pre-change).
+- Subsequent rebuilds with single-file C++ changes: ~1-3 min.
+- Pure Lua changes: no rebuild needed (`docker-compose restart swgemu`).
+
+**Important:** the binary lands in `/app/MMOCoreORB/bin/` via a cmake POST_BUILD copy (`Core3/MMOCoreORB/src/CMakeLists.txt:168-173`), which is OUTSIDE the cached build dir. So caching `/app/MMOCoreORB/build` doesn't strand the binary. Don't move the cache mount to cover `bin/` — that would.
+
+To clear the caches (rare — only if ccache returns wrong objects, which has never happened in practice): `docker builder prune --filter type=exec.cachemount`.
+
+BuildKit is the default in modern Docker Desktop. If running this on a system where BuildKit is off, prefix builds with `DOCKER_BUILDKIT=1`.
+
 ## Lua Configuration Layout
 
 All Lua files mount over Core3 defaults in the container. Key files:
@@ -375,6 +397,21 @@ Survey-tool sampling (`/sample`) has four configurable knobs in `resource_manage
 - `SurveySessionImplementation::rescheduleSample()` — reads the interval per-tick; already had a `resourceManager` reference set in `startSession()`, so no new plumbing.
 
 Lua-only value tweaks take effect on `docker-compose restart swgemu`. C++ changes (adding a knob, changing formula) require a full rebuild.
+
+## Character Creation Cooldown
+
+`characterCreationCooldown` (seconds) in `player_creation_manager/player_creation_manager.lua:2` is the single source of truth — `0` disables the cooldown entirely. Repo override defaults to `0`; upstream stock is `3600` (1 hour).
+
+Two gates enforce it in `Core3/MMOCoreORB/src/server/zone/managers/player/creation/PlayerCreationManager.cpp`, both bypassed for `accountPermissionLevel >= 9` (admin levels 9, 10, 12, 15 — hardcoded, not Lua-tunable):
+
+| Gate | Lines | Survives restart? |
+|------|-------|-------------------|
+| In-memory `lastCreatedCharacter` HashTable | ~498-518 | No (cleared on container restart) |
+| DB-backed query against `characters.creation_date` + `deleted_characters.creation_date` | ~466-493 | Yes |
+
+Both gates now multiply `characterCreationCooldown * 1000` for the ms threshold and emit the same dynamic error message. The DB-backed gate is wrapped in `if (characterCreationCooldown > 0)` so a value of `0` skips the DB roundtrip entirely.
+
+**Historical gotcha:** stock SWGEmu hardcodes `3600000` ms in the DB-backed gate's comparison and error string, so setting `characterCreationCooldown = 0` only disables the in-memory gate — non-admin accounts still hit the 1-hour DB check. The fix in this repo unifies both gates on the Lua value. C++ change — requires full rebuild.
 
 ### Force Run Toggle
 

@@ -47,6 +47,10 @@
 onlineCharactersPerAccount = 5 --How many characters are allowed online from a single account.
 allowSameAccountPvpRatingCredit = 1
 
+--Delay in seconds before a vehicle spawns when called outside a city/camp. 0 disables the delay entirely.
+--Admins (adminLevel >= 9) always bypass this regardless of value.
+vehicleCallDelay = 0
+
 --Blue frog / GM buff values
 performanceBuff = 2800
 medicalBuff = 3200
