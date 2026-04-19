@@ -96,3 +96,13 @@ destroyMissionDifficultyRandomReward = 15
 -- Maximum number of missions a player can have active at one time (default: 2)
 -- Note: Only one active mission can be a bounty mission, regardless of this limit
 maximumMissions = 10
+
+-- Mission Terminal Direction Filter
+-- When enabled, players can right-click a mission terminal and pick a compass
+-- direction (N/NE/E/SE/S/SW/W/NW). Subsequent List Missions calls only populate
+-- bag slots whose destination falls in that 45-degree wedge (relative to the
+-- player's current position). Slots that can't satisfy the filter are left empty;
+-- the player can simply re-list to roll again. Filter is per-character and
+-- session-only (cleared on logout). Set to 0 to hide the radial item and bypass
+-- all filter logic.
+enableMissionDirectionFilter = 1
